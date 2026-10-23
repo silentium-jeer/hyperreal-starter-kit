@@ -1,0 +1,28 @@
+/* The shell window's layout: its title bar (WindowChrome) on top, the app under it. The app is the
+   web-starter-kit's, unchanged, whose screens are fixed to the viewport (the bootstrap gate's shell is
+   position: fixed; inset: 0); the transform makes #root their containing block, so they fill the area under the
+   title bar instead of the whole window. A world under a GameWorld box then sits under the title bar too. */
+:root {
+  --shell-title-bar: 38px;
+}
+
+#window-chrome {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--shell-title-bar);
+}
+
+/* html body #root: above index.css's `html, body, #root { min-height: 100svh }`, which would make the app as tall
+   as the whole window and push its bottom under the window's edge. */
+html body #root {
+  position: fixed;
+  top: var(--shell-title-bar);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 0;
+  overflow: hidden;
+  transform: translateZ(0);
+}

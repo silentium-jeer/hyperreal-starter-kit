@@ -1,0 +1,39 @@
+import * as UE from 'ue';
+import { useRef } from 'react';
+import { colored } from '../../../shared/engine/world';
+import { useFrame } from '../../../shared/react';
+import type { Vector3 } from '../../../shared/react/props';
+
+// A row of cubes turning every frame: actors held by ref and moved in useFrame, the way per-frame motion
+// is written (React state is for what the scene is, not for where it is this frame).
+export interface SpinningCubesProps {
+  at: Vector3;
+  count?: number;
+  degreesPerSecond?: number;
+}
+
+const CUBE = '/Engine/BasicShapes/Cube.Cube';
+
+export function SpinningCubes({ at, count = 5, degreesPerSecond = 90 }: SpinningCubesProps) {
+  const cubes = useRef<(UE.StaticMeshActor | null)[]>([]);
+  const yaw = useRef(0);
+  useFrame((deltaSeconds) => {
+    yaw.current = (yaw.current + degreesPerSecond * deltaSeconds) % 360;
+    cubes.current.forEach((cube, i) => cube?.K2_SetActorRotation(new UE.Rotator(0, yaw.current + i * 15, 0), false));
+  });
+  const material = colored([0.9, 0.25, 0.1]);
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <staticMeshActor
+          key={i}
+          ref={(actor) => {
+            cubes.current[i] = actor;
+          }}
+          location={[at[0], at[1] + (i - (count - 1) / 2) * 180, at[2]]}
+          staticMeshComponent={{ mobility: UE.EComponentMobility.Movable, staticMesh: CUBE, overrideMaterials: [material] }}
+        />
+      ))}
+    </>
+  );
+}

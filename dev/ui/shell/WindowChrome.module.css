@@ -1,0 +1,109 @@
+.bar {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid rgb(0 0 0 / 55%);
+  background: linear-gradient(180deg, #2c2c30 0%, #1c1c1e 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 1px 6px rgb(0 0 0 / 35%);
+  color: rgb(235 235 245 / 60%);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  user-select: none;
+  app-region: drag;
+  -webkit-app-region: drag;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* A segmented control in the manner of iOS: one track, the open section a raised thumb. */
+.sections {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgb(118 118 128 / 24%);
+  transform: translateY(-50%);
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+.section {
+  height: 24px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgb(235 235 245 / 72%);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.section:hover {
+  color: #fff;
+}
+
+.section[aria-current='page'] {
+  background: #636366;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 30%), inset 0 0.5px 0 rgb(255 255 255 / 18%);
+  color: #fff;
+  font-weight: 600;
+}
+
+.controls {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  transform: translateY(-50%);
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+.button {
+  display: grid;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgb(235 235 245 / 72%);
+  cursor: default;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.button:hover {
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
+}
+
+.button:active {
+  background: rgb(255 255 255 / 18%);
+}
+
+.close:hover {
+  background: #ff453a;
+  color: #fff;
+}
+
+.button svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

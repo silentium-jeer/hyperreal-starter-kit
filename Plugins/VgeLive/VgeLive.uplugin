@@ -1,0 +1,11 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "VgeLive",
+	"Description": "Content produced by the Vibe Game Engine content service while the game runs. Cooked as DLC against the base release and mounted at runtime.",
+	"Category": "Vge",
+	"CanContainContent": true,
+	"EnabledByDefault": true,
+	"Modules": []
+}

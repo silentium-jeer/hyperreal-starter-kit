@@ -1,0 +1,140 @@
+#include "VgeContentServiceCommandlet.h"
+
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Containers/Queue.h"
+#include "Containers/Ticker.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/CoreDelegates.h"
+#include "VgeImporter.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
+#include "UObject/UObjectGlobals.h"
+
+#include <atomic>
+#include <cstdio>
+#include <iostream>
+#include <string>
+
+DEFINE_LOG_CATEGORY_STATIC(LogVgeService, Log, All);
+
+namespace
+{
+	// Reads request lines from stdin on its own thread; the game thread executes them.
+	class FStdinReader : public FRunnable
+	{
+	public:
+		TQueue<FString, EQueueMode::Spsc> Lines;
+		std::atomic<bool> bClosed{ false };
+
+		virtual uint32 Run() override
+		{
+			std::string Line;
+			while (std::getline(std::cin, Line))
+			{
+				Lines.Enqueue(UTF8_TO_TCHAR(Line.c_str()));
+			}
+			bClosed = true;
+			return 0;
+		}
+	};
+
+	void Emit(const TSharedRef<FJsonObject>& Message)
+	{
+		FString Json;
+		FJsonSerializer::Serialize(Message, TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Json));
+		const FTCHARToUTF8 Utf8(*Json);
+		std::printf("@@vge %s\n", Utf8.Get());
+		std::fflush(stdout);
+	}
+
+	TSharedRef<FJsonObject> Handle(const TSharedPtr<FJsonObject>& Request)
+	{
+		const FString Command = Request->GetStringField(TEXT("cmd"));
+		TSharedRef<FJsonObject> Result = MakeShared<FJsonObject>();
+		if (Command == TEXT("import"))
+		{
+			Result = VgeImporter::Import(Request->GetStringField(TEXT("source")), Request->GetStringField(TEXT("dest")));
+			if (!Result->GetBoolField(TEXT("saved")))
+			{
+				Result->SetStringField(TEXT("error"), TEXT("nothing was imported; see the service log"));
+			}
+		}
+		else if (Command == TEXT("import-animations"))
+		{
+			Result = VgeImporter::ImportAnimations(Request->GetStringField(TEXT("source")), Request->GetStringField(TEXT("dest")), Request->GetStringField(TEXT("skeleton")));
+			if (!Result->HasField(TEXT("error")) && !Result->GetBoolField(TEXT("saved")))
+			{
+				Result->SetStringField(TEXT("error"), TEXT("no animation was imported; see the service log"));
+			}
+		}
+		else if (Command == TEXT("delete"))
+		{
+			Result->SetNumberField(TEXT("deleted"), VgeImporter::DeleteContentPath(Request->GetStringField(TEXT("path"))));
+		}
+		else if (Command != TEXT("ping"))
+		{
+			Result->SetStringField(TEXT("error"), FString::Printf(TEXT("unknown command '%s'"), *Command));
+		}
+		return Result;
+	}
+}
+
+int32 UVgeContentServiceCommandlet::Main(const FString& Params)
+{
+	// The asset registry must know everything on disk before imports replace or delete assets.
+	FAssetRegistryModule::GetRegistry().SearchAllAssets(/*bSynchronousSearch*/ true);
+
+	FStdinReader Reader;
+	TUniquePtr<FRunnableThread> ReaderThread(FRunnableThread::Create(&Reader, TEXT("VgeServiceStdin")));
+
+	TSharedRef<FJsonObject> Ready = MakeShared<FJsonObject>();
+	Ready->SetStringField(TEXT("event"), TEXT("ready"));
+	Emit(Ready);
+	UE_LOGF(LogVgeService, Display, "Content service ready");
+
+	double LastTick = FPlatformTime::Seconds();
+	while (!IsEngineExitRequested())
+	{
+		FString Line;
+		while (Reader.Lines.Dequeue(Line))
+		{
+			TSharedPtr<FJsonObject> Request;
+			if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Line), Request) || !Request.IsValid())
+			{
+				UE_LOGF(LogVgeService, Error, "Ignoring malformed request: %ls", *Line);
+				continue;
+			}
+			const double Started = FPlatformTime::Seconds();
+			const TSharedRef<FJsonObject> Result = Handle(Request);
+			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
+			TSharedRef<FJsonObject> Reply = MakeShared<FJsonObject>();
+			Reply->SetNumberField(TEXT("id"), Request->GetNumberField(TEXT("id")));
+			Reply->SetBoolField(TEXT("ok"), !Result->HasField(TEXT("error")));
+			Reply->SetObjectField(TEXT("result"), Result);
+			Reply->SetNumberField(TEXT("seconds"), FPlatformTime::Seconds() - Started);
+			Emit(Reply);
+		}
+
+		if (Reader.bClosed && Reader.Lines.IsEmpty())
+		{
+			UE_LOGF(LogVgeService, Display, "stdin closed, content service exits");
+			break;
+		}
+
+		// Keep the engine's game-thread work moving between requests (async compilation, tickers).
+		const double Now = FPlatformTime::Seconds();
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
+		FTSTicker::GetCoreTicker().Tick(static_cast<float>(Now - LastTick));
+		LastTick = Now;
+		FPlatformProcess::Sleep(0.01f);
+	}
+
+	// The reader thread is blocked in getline on a closed pipe only when the owner is gone.
+	ReaderThread->Kill(/*bShouldWait*/ false);
+	return 0;
+}

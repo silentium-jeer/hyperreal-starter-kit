@@ -1,0 +1,581 @@
+{
+  "files": {
+    "dev/src/app/debug-seam.ts": {
+      "comments": 3,
+      "fileLines": 30,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "dev/src/app/program.ts": {
+      "comments": 2,
+      "fileLines": 8,
+      "functionsOverLimit": 0,
+      "worstFunction": 1
+    },
+    "dev/src/app/refresh.ts": {
+      "comments": 3,
+      "fileLines": 11,
+      "functionsOverLimit": 0,
+      "worstFunction": 1
+    },
+    "dev/src/app/release-globals.ts": {
+      "comments": 2,
+      "fileLines": 7,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/src/app/scenes.ts": {
+      "comments": 4,
+      "fileLines": 68,
+      "functionsOverLimit": 0,
+      "worstFunction": 21
+    },
+    "dev/src/app/ui-host.ts": {
+      "comments": 6,
+      "fileLines": 19,
+      "functionsOverLimit": 0,
+      "worstFunction": 4
+    },
+    "dev/src/features/character/entities/Player.tsx": {
+      "comments": 7,
+      "fileLines": 83,
+      "functionsOverLimit": 0,
+      "worstFunction": 27
+    },
+    "dev/src/features/character/entities/mannequin.ts": {
+      "comments": 4,
+      "fileLines": 47,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "dev/src/features/character/entities/modularCharacter.ts": {
+      "comments": 7,
+      "fileLines": 77,
+      "functionsOverLimit": 0,
+      "worstFunction": 36
+    },
+    "dev/src/features/character/labs/mannequin/index.tsx": {
+      "comments": 1,
+      "fileLines": 41,
+      "functionsOverLimit": 0,
+      "worstFunction": 19
+    },
+    "dev/src/features/character/labs/playground/index.tsx": {
+      "comments": 1,
+      "fileLines": 16,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/src/features/demo/entities/LiveAsset.tsx": {
+      "comments": 2,
+      "fileLines": 27,
+      "functionsOverLimit": 0,
+      "worstFunction": 10
+    },
+    "dev/src/features/demo/entities/SpinningCubes.tsx": {
+      "comments": 2,
+      "fileLines": 40,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "dev/src/features/demo/labs/nanite/index.tsx": {
+      "comments": 2,
+      "fileLines": 31,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
+    "dev/src/features/world/entities/BoxPyramid.tsx": {
+      "comments": 2,
+      "fileLines": 36,
+      "functionsOverLimit": 0,
+      "worstFunction": 7
+    },
+    "dev/src/features/world/entities/Colonnade.tsx": {
+      "comments": 2,
+      "fileLines": 45,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "dev/src/features/world/entities/Dominoes.tsx": {
+      "comments": 1,
+      "fileLines": 41,
+      "functionsOverLimit": 0,
+      "worstFunction": 11
+    },
+    "dev/src/features/world/entities/SphereRain.tsx": {
+      "comments": 2,
+      "fileLines": 56,
+      "functionsOverLimit": 0,
+      "worstFunction": 15
+    },
+    "dev/src/features/world/entities/Stairs.tsx": {
+      "comments": 4,
+      "fileLines": 38,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
+    "dev/src/features/world/labs/instancing/index.tsx": {
+      "comments": 1,
+      "fileLines": 46,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "dev/src/features/world/labs/lumen/index.tsx": {
+      "comments": 4,
+      "fileLines": 44,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/src/main.ts": {
+      "comments": 2,
+      "fileLines": 8,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/src/models.d.ts": {
+      "comments": 1,
+      "fileLines": 14,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/src/release.ts": {
+      "comments": 2,
+      "fileLines": 5,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/src/scenes/lab-stage/LabStage.tsx": {
+      "comments": 4,
+      "fileLines": 35,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/src/scenes/main/index.tsx": {
+      "comments": 3,
+      "fileLines": 22,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/src/shared/engine/content.ts": {
+      "comments": 17,
+      "fileLines": 128,
+      "functionsOverLimit": 0,
+      "worstFunction": 21
+    },
+    "dev/src/shared/engine/world.ts": {
+      "comments": 16,
+      "fileLines": 161,
+      "functionsOverLimit": 0,
+      "worstFunction": 15
+    },
+    "dev/src/shared/lib/devLab.ts": {
+      "comments": 7,
+      "fileLines": 23,
+      "functionsOverLimit": 0,
+      "worstFunction": 1
+    },
+    "dev/src/shared/react/apply.ts": {
+      "comments": 16,
+      "fileLines": 149,
+      "functionsOverLimit": 0,
+      "worstFunction": 24
+    },
+    "dev/src/shared/react/catalog.ts": {
+      "comments": 3,
+      "fileLines": 33,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "dev/src/shared/react/content.ts": {
+      "comments": 3,
+      "fileLines": 22,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "dev/src/shared/react/hooks.ts": {
+      "comments": 2,
+      "fileLines": 23,
+      "functionsOverLimit": 0,
+      "worstFunction": 17
+    },
+    "dev/src/shared/react/jsx.d.ts": {
+      "comments": 1,
+      "fileLines": 9,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/src/shared/react/props.ts": {
+      "comments": 4,
+      "fileLines": 41,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/src/shared/react/renderer.ts": {
+      "comments": 16,
+      "fileLines": 347,
+      "functionsOverLimit": 0,
+      "worstFunction": 23
+    },
+    "dev/ui/app/labs/DevLabRouter.tsx": {
+      "comments": 4,
+      "fileLines": 39,
+      "functionsOverLimit": 0,
+      "worstFunction": 9
+    },
+    "dev/ui/app/labs/devLab.ts": {
+      "comments": 1,
+      "fileLines": 18,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/app/labs/labRegistry.ts": {
+      "comments": 9,
+      "fileLines": 89,
+      "functionsOverLimit": 0,
+      "worstFunction": 17
+    },
+    "dev/ui/app/router/AppRouter.tsx": {
+      "comments": 16,
+      "fileLines": 67,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
+    "dev/ui/app/ui/labs/LabsScreen.tsx": {
+      "comments": 6,
+      "fileLines": 102,
+      "functionsOverLimit": 0,
+      "worstFunction": 18
+    },
+    "dev/ui/bridge.ts": {
+      "comments": 4,
+      "fileLines": 52,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "dev/ui/features/bootstrap/systems/bootstrapAssetRegistry.ts": {
+      "comments": 2,
+      "fileLines": 21,
+      "functionsOverLimit": 0,
+      "worstFunction": 3
+    },
+    "dev/ui/features/bootstrap/systems/bootstrapPhase.ts": {
+      "comments": 1,
+      "fileLines": 17,
+      "functionsOverLimit": 0,
+      "worstFunction": 3
+    },
+    "dev/ui/features/bootstrap/systems/bootstrapProgress.ts": {
+      "comments": 4,
+      "fileLines": 73,
+      "functionsOverLimit": 0,
+      "worstFunction": 17
+    },
+    "dev/ui/features/bootstrap/systems/bootstrapSteps.ts": {
+      "comments": 1,
+      "fileLines": 11,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/features/bootstrap/systems/initialRenderReady.ts": {
+      "comments": 1,
+      "fileLines": 43,
+      "functionsOverLimit": 0,
+      "worstFunction": 10
+    },
+    "dev/ui/features/bootstrap/systems/preloadBootstrapAssets.ts": {
+      "comments": 1,
+      "fileLines": 94,
+      "functionsOverLimit": 0,
+      "worstFunction": 32
+    },
+    "dev/ui/features/bootstrap/ui/BootstrapGate.tsx": {
+      "comments": 8,
+      "fileLines": 318,
+      "functionsOverLimit": 1,
+      "worstFunction": 150
+    },
+    "dev/ui/features/bootstrap/ui/BootstrapPreloader.tsx": {
+      "comments": 1,
+      "fileLines": 58,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "dev/ui/features/bootstrap/ui/BootstrapRenderContext.ts": {
+      "comments": 1,
+      "fileLines": 5,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/features/bootstrap/ui/useReportInitialRenderReady.ts": {
+      "comments": 1,
+      "fileLines": 43,
+      "functionsOverLimit": 0,
+      "worstFunction": 25
+    },
+    "dev/ui/features/ui-kit/components/AudioSettingsControls/AudioSettingsControls.tsx": {
+      "comments": 1,
+      "fileLines": 71,
+      "functionsOverLimit": 0,
+      "worstFunction": 9
+    },
+    "dev/ui/features/ui-kit/components/AudioSettingsControls/preview.tsx": {
+      "comments": 1,
+      "fileLines": 44,
+      "functionsOverLimit": 0,
+      "worstFunction": 11
+    },
+    "dev/ui/features/ui-kit/components/ControlButton/ControlButton.tsx": {
+      "comments": 3,
+      "fileLines": 50,
+      "functionsOverLimit": 0,
+      "worstFunction": 13
+    },
+    "dev/ui/features/ui-kit/components/ControlButton/preview.tsx": {
+      "comments": 1,
+      "fileLines": 36,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
+    "dev/ui/features/ui-kit/components/ControlChoice/ControlChoice.tsx": {
+      "comments": 2,
+      "fileLines": 45,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/ui/features/ui-kit/components/ControlPanel/ControlPanel.tsx": {
+      "comments": 4,
+      "fileLines": 40,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/ui/features/ui-kit/components/ControlSlider/ControlSlider.tsx": {
+      "comments": 3,
+      "fileLines": 67,
+      "functionsOverLimit": 0,
+      "worstFunction": 17
+    },
+    "dev/ui/features/ui-kit/components/ControlSlider/preview.tsx": {
+      "comments": 1,
+      "fileLines": 50,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "dev/ui/features/ui-kit/components/DanceControl/DanceControl.tsx": {
+      "comments": 1,
+      "fileLines": 42,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "dev/ui/features/ui-kit/components/GitHubCornerLink/GitHubCornerLink.tsx": {
+      "comments": 1,
+      "fileLines": 34,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/ui/features/ui-kit/components/LabCard/LabCard.tsx": {
+      "comments": 4,
+      "fileLines": 51,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "dev/ui/features/ui-kit/components/LabCard/preview.tsx": {
+      "comments": 1,
+      "fileLines": 41,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/ui/features/ui-kit/components/Patch9Button/Patch9Button.tsx": {
+      "comments": 0,
+      "fileLines": 199,
+      "functionsOverLimit": 1,
+      "worstFunction": 83
+    },
+    "dev/ui/features/ui-kit/components/PauseMenu/PauseMenu.tsx": {
+      "comments": 7,
+      "fileLines": 109,
+      "functionsOverLimit": 0,
+      "worstFunction": 21
+    },
+    "dev/ui/features/ui-kit/components/PauseMenu/preview.tsx": {
+      "comments": 5,
+      "fileLines": 94,
+      "functionsOverLimit": 0,
+      "worstFunction": 7
+    },
+    "dev/ui/features/ui-kit/components/PixelDiffInspector/PixelDiffInspector.tsx": {
+      "comments": 1,
+      "fileLines": 69,
+      "functionsOverLimit": 0,
+      "worstFunction": 23
+    },
+    "dev/ui/features/ui-kit/components/SettingsSection/SettingsSection.tsx": {
+      "comments": 2,
+      "fileLines": 34,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/ui/features/ui-kit/components/SettingsSection/preview.tsx": {
+      "comments": 1,
+      "fileLines": 37,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
+    "dev/ui/features/ui-kit/components/StarterKitShowcase/StarterKitShowcase.tsx": {
+      "comments": 2,
+      "fileLines": 47,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "dev/ui/features/ui-kit/components/TouchActionButton/TouchActionButton.tsx": {
+      "comments": 1,
+      "fileLines": 28,
+      "functionsOverLimit": 0,
+      "worstFunction": 7
+    },
+    "dev/ui/features/ui-kit/components/UiKitGallery/UiKitGallery.tsx": {
+      "comments": 13,
+      "fileLines": 211,
+      "functionsOverLimit": 1,
+      "worstFunction": 98
+    },
+    "dev/ui/features/ui-kit/components/VideoSettingsControls/VideoSettingsControls.tsx": {
+      "comments": 6,
+      "fileLines": 96,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "dev/ui/features/ui-kit/components/VirtualStick/VirtualStick.tsx": {
+      "comments": 1,
+      "fileLines": 76,
+      "functionsOverLimit": 0,
+      "worstFunction": 51
+    },
+    "dev/ui/features/ui-kit/systems/pixelDiff.ts": {
+      "comments": 2,
+      "fileLines": 180,
+      "functionsOverLimit": 0,
+      "worstFunction": 43
+    },
+    "dev/ui/features/world/ui/GameScreen.tsx": {
+      "comments": 1,
+      "fileLines": 5,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/features/world/ui/GameWorld.tsx": {
+      "comments": 10,
+      "fileLines": 89,
+      "functionsOverLimit": 0,
+      "worstFunction": 45
+    },
+    "dev/ui/features/world/ui/WorldScreen.tsx": {
+      "comments": 2,
+      "fileLines": 14,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
+    "dev/ui/hud.tsx": {
+      "comments": 2,
+      "fileLines": 8,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/kit-env.d.ts": {
+      "comments": 5,
+      "fileLines": 21,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/main.tsx": {
+      "comments": 6,
+      "fileLines": 35,
+      "functionsOverLimit": 0,
+      "worstFunction": 9
+    },
+    "dev/ui/shared/config/graphicsPresets.ts": {
+      "comments": 2,
+      "fileLines": 59,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/shared/lib/a11y/reducedMotion.ts": {
+      "comments": 1,
+      "fileLines": 15,
+      "functionsOverLimit": 0,
+      "worstFunction": 7
+    },
+    "dev/ui/shared/lib/audio/audioSettings.ts": {
+      "comments": 9,
+      "fileLines": 134,
+      "functionsOverLimit": 0,
+      "worstFunction": 23
+    },
+    "dev/ui/shared/lib/audio/soundMixer.ts": {
+      "comments": 9,
+      "fileLines": 96,
+      "functionsOverLimit": 0,
+      "worstFunction": 10
+    },
+    "dev/ui/shared/lib/dev/trimUserTiming.ts": {
+      "comments": 5,
+      "fileLines": 32,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "dev/ui/shared/lib/devLab.ts": {
+      "comments": 7,
+      "fileLines": 53,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "dev/ui/shared/lib/graphics/FrameProbe.tsx": {
+      "comments": 26,
+      "fileLines": 317,
+      "functionsOverLimit": 2,
+      "worstFunction": 150
+    },
+    "dev/ui/shared/lib/graphics/frameRateCap.ts": {
+      "comments": 4,
+      "fileLines": 66,
+      "functionsOverLimit": 0,
+      "worstFunction": 13
+    },
+    "dev/ui/shared/lib/graphics/graphicsQuality.ts": {
+      "comments": 5,
+      "fileLines": 80,
+      "functionsOverLimit": 0,
+      "worstFunction": 13
+    },
+    "dev/ui/shared/lib/input/haptics.ts": {
+      "comments": 1,
+      "fileLines": 10,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
+    "dev/ui/shared/lib/ui-scale/useResponsiveTargetWidth.ts": {
+      "comments": 5,
+      "fileLines": 55,
+      "functionsOverLimit": 0,
+      "worstFunction": 10
+    },
+    "dev/ui/shell/WindowChrome.tsx": {
+      "comments": 9,
+      "fileLines": 115,
+      "functionsOverLimit": 0,
+      "worstFunction": 15
+    },
+    "dev/ui/shell/bridge.ts": {
+      "comments": 4,
+      "fileLines": 50,
+      "functionsOverLimit": 0,
+      "worstFunction": 13
+    },
+    "dev/ui/shell/chrome.tsx": {
+      "comments": 1,
+      "fileLines": 8,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    }
+  },
+  "recorded": "2026-10-23"
+}
