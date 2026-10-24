@@ -471,6 +471,9 @@ bool FabWindow::OnQuery(CefRefPtr<CefBrowser> InBrowser, CefRefPtr<CefFrame> Fra
 	{
 		Callback->Success("");
 		Install(Method, Args);
+		// Pressed and taken: the window goes, and the shell page shows how the install goes (ui/shell/FabNotices.tsx,
+		// from the dev server). The install's request outlives the window.
+		Close();
 	}
 	else if (Method == "setpreferredqualitytier")
 	{

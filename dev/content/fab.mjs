@@ -42,7 +42,8 @@ function field(metadata, name) {
   return key === undefined ? undefined : metadata[key];
 }
 
-export function createFab({ projectDir, devDir, pipeline, broadcast, log = console.log }) {
+// `notify(entry)` tells the user how an install goes: the shell page shows it (ui/shell/FabNotices.tsx).
+export function createFab({ projectDir, devDir, pipeline, broadcast, notify = () => {}, log = console.log }) {
   const fabDir = join(projectDir, 'Saved', 'Fab');
   const settingsFile = join(fabDir, 'settings.json');
   const installsFile = join(fabDir, 'installs.json');
@@ -76,9 +77,19 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, log = conso
     }
     if (!existsSync(join(projectDir, 'Content', pack))) throw new Error(`no asset pack in Content/${pack}`);
     ignoreFolder(join(projectDir, 'Content', pack));
-    const built = await new Promise((resolvePromise, reject) => pipeline.enqueuePack(pack, (err, value) => (err ? reject(err) : resolvePromise(value))));
-    broadcast(built.manifest);
-    return { kind: 'pack', pack, contentPath: `/Game/${pack}/`, container: built.manifest.packs[pack].pak };
+    const entry = { id: `pack:${pack}`, name: pack, state: 'started', progress: { stage: 'cooking' } };
+    notify(entry);
+    try {
+      const built = await new Promise((resolvePromise, reject) => pipeline.enqueuePack(pack, (err, value) => (err ? reject(err) : resolvePromise(value))));
+      broadcast(built.manifest);
+      Object.assign(entry, { state: 'done', result: { kind: 'pack', pack, contentPath: `/Game/${pack}/`, container: built.manifest.packs[pack].pak } });
+      return entry.result;
+    } catch (err) {
+      Object.assign(entry, { state: 'failed', error: err.message });
+      throw err;
+    } finally {
+      notify(entry);
+    }
   }
 
   async function installPack(entry, downloadUrl, baseUrls, progress) {
@@ -214,9 +225,12 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, log = conso
     }
     installs[id] = entry;
     saveInstalls();
+    notify(entry);
     const report = (value) => {
+      const changed = value.stage !== entry.progress?.stage || Math.floor(value.percent ?? -1) !== Math.floor(entry.progress?.percent ?? -1);
       entry.progress = value;
       progress(value);
+      if (changed) notify(entry);
     };
     log(`[fab] ${method} ${entry.name} (${id}, ${type})`);
     try {
@@ -235,6 +249,7 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, log = conso
       throw err;
     } finally {
       saveInstalls();
+      notify(entry);
     }
   }
 

@@ -185,7 +185,14 @@ function fabPlugin() {
     name: 'vge:fab',
     configureServer(server) {
       const unreal = () => server.environments.unreal.hot;
-      const fab = createFab({ projectDir: resolve(process.cwd(), '..'), devDir: process.cwd(), pipeline, broadcast: (manifest) => unreal().send('vge:content', manifest) });
+      const fab = createFab({
+        projectDir: resolve(process.cwd(), '..'),
+        devDir: process.cwd(),
+        pipeline,
+        broadcast: (manifest) => unreal().send('vge:content', manifest),
+        // The shell page's notices (ui/shell/FabNotices.tsx) follow each install.
+        notify: (entry) => server.ws.send({ type: 'custom', event: 'vge:fab-install', data: entry }),
+      });
       const readJson = (req) =>
         new Promise((resolvePromise) => {
           let body = '';

@@ -21,7 +21,8 @@
 // here; sign-in and installs go to the kit's dev server (POST /__vge/fab), which hands them to the content service:
 //   getauthtoken getrefreshtoken getapiversion getsettings   answered by the dev server
 //   login logout                                              done there, then the page's OnLogin / OnLogout callback
-//   addtoproject installtoproject installtoengine             the install runs there; its progress shows in the title
+//   addtoproject installtoproject installtoengine             the install runs there and the window closes; the shell
+//                                                             page's notices follow it (ui/shell/FabNotices.tsx)
 class FabWindow : public CefClient,
 				  public CefLifeSpanHandler,
 				  public CefDisplayHandler,
