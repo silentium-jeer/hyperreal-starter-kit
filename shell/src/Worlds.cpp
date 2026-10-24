@@ -30,8 +30,9 @@ namespace
 	}
 }
 
-Worlds::Worlds(std::wstring InGameExe, std::wstring InLogDir)
+Worlds::Worlds(std::wstring InGameExe, std::wstring InDevServer, std::wstring InLogDir)
 	: GameExe(std::move(InGameExe))
+	, DevServer(std::move(InDevServer))
 	, LogDir(std::move(InLogDir))
 {
 	Job = CreateJobObjectW(nullptr, nullptr);
@@ -60,9 +61,9 @@ int Worlds::Open(const std::wstring& Scene, const RECT& Rect)
 	// The window opens where it will stay, borderless the engine's own way: the project setting
 	// bUseBorderlessWindow (UGameEngine::CreateGameWindow), given on the command line as a config override.
 	wchar_t CommandLine[2048];
-	swprintf_s(CommandLine, L"\"%s\" -Scene=%s -windowed -WinX=%ld -WinY=%ld -ResX=%ld -ResY=%ld"
+	swprintf_s(CommandLine, L"\"%s\" -Scene=%s -DevServer=%s -windowed -WinX=%ld -WinY=%ld -ResX=%ld -ResY=%ld"
 		L" -ini:Game:[/Script/EngineSettings.GeneralProjectSettings]:bUseBorderlessWindow=True -abslog=\"%s\\world-%s-%lu.log\"",
-		GameExe.c_str(), Scene.c_str(), Rect.left, Rect.top, Rect.right - Rect.left, Rect.bottom - Rect.top,
+		GameExe.c_str(), Scene.c_str(), DevServer.c_str(), Rect.left, Rect.top, Rect.right - Rect.left, Rect.bottom - Rect.top,
 		LogDir.c_str(), LogName.c_str(), GetTickCount());
 
 	World NewWorld;

@@ -8,7 +8,6 @@ import { spawnSync } from 'node:child_process';
 import { findEngine, saveEngine } from './engine.mjs';
 import { checkAll, toolchainInstallCommand } from './prereqs.mjs';
 import { ensureRuntime, linkKit } from './runtime.mjs';
-import { refuseWhileDevServerRuns } from './steps.mjs';
 
 const TAG = 'setup';
 const rebuild = process.argv.includes('--rebuild');
@@ -40,7 +39,6 @@ function checkMachine() {
 }
 
 const started = Date.now();
-await refuseWhileDevServerRuns();
 checkMachine();
 linkKit(TAG, await ensureRuntime(TAG, { rebuild }));
 

@@ -106,7 +106,7 @@ ShellWindow::ShellWindow(const Options& InOptions)
 	CefMessageRouterConfig Config;
 	Router = CefMessageRouterBrowserSide::Create(Config);
 	Router->AddHandler(this, false);
-	Running = std::make_unique<Worlds>(Settings.GameExe, Settings.LogDir);
+	Running = std::make_unique<Worlds>(Settings.GameExe, Settings.DevServer, Settings.LogDir);
 	wchar_t LogPath[MAX_PATH];
 	swprintf_s(LogPath, L"%s\\shell-%lu.log", Settings.LogDir.c_str(), GetTickCount());
 	// Shared for reading, so the log can be read while the shell runs.

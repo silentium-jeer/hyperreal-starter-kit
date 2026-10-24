@@ -1,10 +1,11 @@
 // Starts a game process against the running dev server.
-//   npm run play                         the main scene in a window, UI DevTools on 9222
+//   npm run play                         the main scene in a window, UI DevTools on this kit's HUD port (9222)
 //   npm run play -- --scene labs/physics a scene or lab
 //   npm run play -- --lab physics --headless   an agent's isolated lab process without rendering
 // Each process logs to Saved/Logs/play-<scene>-<time>.log next to the project.
 // The shell (`npm run shell`, shell/src) starts the same process for each scene its page shows.
 import { parseArgs } from 'node:util';
+import { ports } from './engine.mjs';
 import { startGame } from './game-process.mjs';
 
 const { values } = parseArgs({
@@ -14,7 +15,7 @@ const { values } = parseArgs({
     headless: { type: 'boolean', default: false },
     width: { type: 'string', default: '1280' },
     height: { type: 'string', default: '720' },
-    cdp: { type: 'string', default: '9222' },
+    cdp: { type: 'string', default: String(ports().hud) },
   },
 });
 

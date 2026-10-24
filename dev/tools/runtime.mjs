@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { engine, repoRoot, saveRuntime } from './engine.mjs';
-import { buildShell, buildTargets, masterMaterials, packageBase, typings } from './steps.mjs';
+import { buildShell, buildTargets, masterMaterials, packageBase, refuseRebuildingRuntimeInUse, typings } from './steps.mjs';
 
 export const V8_VERSION = '11.8.172';
 const SOURCES = ['VibeGameEngine.uproject', 'Source', 'Config', 'Content', 'Plugins', 'shell/src'];
@@ -118,6 +118,7 @@ export async function ensureRuntime(tag, { rebuild = false } = {}) {
     console.log(`[${tag}] runtime ${key} present in ${dir}`);
     return dir;
   }
+  refuseRebuildingRuntimeInUse(dir);
   const started = Date.now();
   console.log(`[${tag}] building runtime ${key} in ${dir} (once per machine for these sources)`);
   rmSync(join(dir, 'runtime.json'), { force: true });

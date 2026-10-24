@@ -81,6 +81,21 @@ export function linkedRuntime() {
   return readConfig().runtime;
 }
 
+// This kit's ports: the dev server (HTTP and the games' channel) and the DevTools ports of a game's HUD page and the
+// shell's page. A profile (`npm run profile`) is a second checkout with its own ports in its vge.config.json, so its
+// dev server, games and shell run beside the main kit's. VGE_PORT overrides the dev server port.
+const DEFAULT_PORTS = { dev: 5173, hud: 9222, shell: 9221 };
+export function ports() {
+  const configured = { ...DEFAULT_PORTS, ...readConfig().ports };
+  return { ...configured, dev: Number(process.env.VGE_PORT ?? configured.dev) };
+}
+
+export function savePorts(value) {
+  writeConfig({ ports: value });
+}
+
+export const devServerUrl = () => `http://127.0.0.1:${ports().dev}`;
+
 export function runtimeDir() {
   const dir = linkedRuntime();
   if (!dir || !existsSync(join(dir, 'runtime.json'))) throw new Error('This kit has no runtime yet; run `npm run setup`.');

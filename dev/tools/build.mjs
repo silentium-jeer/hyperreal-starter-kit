@@ -6,7 +6,7 @@
 //   2. BuildCookRun stages the shared runtime's Shipping game (which runs game.js, UVgeGameInstance) and cooks the base content
 //      plus /Game/Vge/Imported (Config/DefaultGame.ini), so a model nothing imports is not in the game.
 //   3. The imported content, the bundle and the UI page are removed again, so a dev package never has them.
-// The dev server must be stopped: the build uses the content service and the editor target's DLLs itself.
+// This kit's dev server must be stopped: the build runs a content service of its own on this kit's project content.
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import react from '@vitejs/plugin-react';
@@ -16,7 +16,7 @@ import { assetName, createDecoder } from '../content/decode.mjs';
 import { contentAssetsPlugin } from '../vite/contentAssetsPlugin.mjs';
 import { uiKitClientPlugins, unrealResolve } from '../vite/environments.mjs';
 import { engine, project, repoRoot } from './engine.mjs';
-import { refuseWhileDevServerRuns, step } from './steps.mjs';
+import { refuseWhileOwnDevServerRuns, step } from './steps.mjs';
 
 const TAG = 'build';
 const IMPORTED = '/Game/Vge/Imported';
@@ -34,7 +34,7 @@ function removeReleaseInputs() {
   rmSync(uiDir, { recursive: true, force: true });
 }
 
-await refuseWhileDevServerRuns();
+refuseWhileOwnDevServerRuns('the release build imports into the same project content');
 const started = Date.now();
 removeReleaseInputs();
 // 3. Nothing of the release stays in the project's content, whether the build finishes, a step exits early or it

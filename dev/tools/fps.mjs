@@ -1,8 +1,9 @@
 // Frame rate of every game connected to the dev server, measured over every frame for a few seconds:
 //   node tools/fps.mjs [seconds=5]
 // Prints per game: average fps, 1% low fps (the average of the slowest 1% of frames), and frame time.
+import { devServerUrl } from './engine.mjs';
+
 const seconds = Number(process.argv[2] ?? 5);
-const port = process.env.VGE_PORT ?? 5173;
 const code = `new Promise((resolve) => {
   const deltas = [];
   const tick = (dt) => deltas.push(dt);
@@ -16,7 +17,7 @@ const code = `new Promise((resolve) => {
     resolve({ frames: deltas.length, fps: +(1 / mean).toFixed(1), low1: +(1 / low).toFixed(1), frameMs: +(mean * 1000).toFixed(2) });
   }, ${seconds * 1000});
 })`;
-const response = await fetch(`http://127.0.0.1:${port}/__vge/eval`, {
+const response = await fetch(`${devServerUrl()}/__vge/eval`, {
   method: 'POST',
   body: JSON.stringify({ code, timeoutMs: seconds * 1000 + 5000 }),
 });

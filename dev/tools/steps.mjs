@@ -2,10 +2,10 @@
 // machine shares. Each runs to completion with its output on the console and stops the caller on failure.
 import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { createConnection } from 'node:net';
 import { join } from 'node:path';
 import { engine } from './engine.mjs';
 import { msvcInstance } from './prereqs.mjs';
+import { ownProcesses, runtimeUsers } from './processes.mjs';
 
 export function step(tag, label, command, args) {
   const started = Date.now();
@@ -18,15 +18,24 @@ export function step(tag, label, command, args) {
   console.log(`[${tag}] ${label} done in ${((Date.now() - started) / 1000).toFixed(1)} s`);
 }
 
-// The dev server's content service holds the project's editor DLLs, so nothing that builds them may run with it.
-export async function refuseWhileDevServerRuns() {
-  const running = await new Promise((done) => {
-    const socket = createConnection({ host: '127.0.0.1', port: Number(process.env.VGE_PORT ?? 5173) });
-    socket.once('connect', () => (socket.destroy(), done(true)));
-    socket.once('error', () => done(false));
-  });
-  if (running) {
-    console.error('Stop the dev server first (its content service locks the editor DLLs).');
+// A dev server's content service holds the editor DLLs of the runtime it was started on. A runtime for other
+// sources builds in its own folder of the store, so only rebuilding a runtime a dev server holds is refused.
+export function refuseRebuildingRuntimeInUse(dir) {
+  const users = runtimeUsers(dir);
+  if (users.length) {
+    console.error(`Stop the dev server of ${users.map((user) => `${user.kit} (pid ${user.pid})`).join(', ')} first: its content service holds ${dir}.`);
+    process.exit(1);
+  }
+}
+
+// This kit's dev server, if it runs: after the kit is linked to another runtime it has to be restarted to use it.
+export const ownDevServer = () => ownProcesses().find((entry) => entry.kind === 'dev');
+
+// For work that writes this kit's project content beside the dev server's own content service (the release build).
+export function refuseWhileOwnDevServerRuns(work) {
+  const dev = ownDevServer();
+  if (dev) {
+    console.error(`Stop this kit's dev server (pid ${dev.pid}, \`npm run stop\`) first: ${work}.`);
     process.exit(1);
   }
 }

@@ -66,17 +66,18 @@
 ## Runtime Checks
 - The web kit used Playwright for browser/runtime verification instead of HTTP-only checks. Here the three instruments are:
   - game state as numbers: `node tools/game.mjs "<expr>"` (from `dev/`) against every connected game process;
-  - the HTML UI: `node tools/ui.mjs text | click <css> | select <css> <v> | eval <js> | console` over CDP; for a game's HUD the game must run with `-cefdebug=<port>`, which `npm run play` passes (9222) for a windowed process; the dev shell's page (`npm run shell`) answers on 9221 (`VGE_CDP=http://127.0.0.1:9221`);
+  - the HTML UI: `node tools/ui.mjs text | click <css> | select <css> <v> | eval <js> | console` over CDP; for a game's HUD the game must run with `-cefdebug=<port>`, which `npm run play` passes (the kit's HUD port, 9222 in the main kit) for a windowed process; the dev shell's page (`npm run shell`) answers on the kit's shell port (9221 in the main kit, `VGE_CDP=http://127.0.0.1:9221`);
   - the look: a capture of the rendered game window (AGENTS.md rule 1).
 - Before starting a new dev server, check whether one is already running: one `npm run dev` serves any number of game processes, and `node tools/game.mjs "1"` prints `no Unreal process is connected to the dev server` when no game is attached.
-- `npm run play` starts a detached game process and prints its pid and log path. Close the game processes you started after the task that used them.
+- `npm run play` starts a detached game process and prints its pid and log path. Close the game processes you started after the task that used them, with `npm run stop` (this kit's processes only), never by process name: other agents' games run under the same name.
+- Work that changes C++ or needs its own build and tests while others keep using the main kit goes into a profile: `npm run profile -- create <name>` gives a checkout on `profile/<name>` with its own ports and runtime (README, "Profiles"). Run every command from that profile's `dev/`; the ports and the dev server are its own. It goes into the main kit by merging the branch and `npm run build:cpp` there.
 
 ## Validation
 - Before final delivery after code changes, run the repository's standard validation commands when feasible (from `dev/`):
   - `npm run typecheck`
   - `npm run build:cpp` — when C++ under `Source/` changed (it also regenerates `Typing/ue`)
   - `npm run test:agent-tools` — when `.claude/hooks` or `scripts/lib` changed
-- `npm run build` exists and is the release build (`dev/tools/build.mjs`: a Shipping game in `Build/Release` with only the imported models; it needs the dev server stopped), run when the task concerns the release. The kit defines no lint, game test or knip script yet (`dev/package.json`); the web kit's `npm run lint`, `npm run test` and `npm run knip` join this list when the kit adds them.
+- `npm run build` exists and is the release build (`dev/tools/build.mjs`: a Shipping game in `Build/Release` with only the imported models; it needs this kit's dev server stopped), run when the task concerns the release. The kit defines no lint, game test or knip script yet (`dev/package.json`); the web kit's `npm run lint`, `npm run test` and `npm run knip` join this list when the kit adds them.
 - If validation is blocked or red, report the exact blocker.
 - Do not call a task complete while known failures from the current work remain unresolved.
 

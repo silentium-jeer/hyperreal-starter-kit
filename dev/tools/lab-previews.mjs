@@ -2,12 +2,11 @@ import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import sharp from 'sharp';
-import { runtimeDir } from './engine.mjs';
+import { devServerUrl, runtimeDir } from './engine.mjs';
 import { startGame } from './game-process.mjs';
 
 const { values, positionals } = parseArgs({ options: { settle: { type: 'string', default: '6' } }, allowPositionals: true });
 const settleMs = Number(values.settle) * 1000;
-const port = process.env.VGE_PORT ?? 5173;
 const root = resolve(import.meta.dirname, '../..');
 const previewsDir = join(root, 'dev', 'ui', 'app', 'ui', 'labs', 'previews');
 const screenshotsDir = join(runtimeDir(), 'Build', 'Package', 'Windows', 'VibeGameEngine', 'Saved', 'Screenshots', 'Windows');
@@ -27,7 +26,7 @@ function labIds() {
 }
 
 async function evalInGames(code, timeoutMs = 5000) {
-  const response = await fetch(`http://127.0.0.1:${port}/__vge/eval`, { method: 'POST', body: JSON.stringify({ code, timeoutMs }) });
+  const response = await fetch(`${devServerUrl()}/__vge/eval`, { method: 'POST', body: JSON.stringify({ code, timeoutMs }) });
   return response.json();
 }
 

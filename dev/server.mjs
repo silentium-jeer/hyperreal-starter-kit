@@ -10,11 +10,13 @@ import { DevEnvironment, createServer, transformWithOxc } from 'vite';
 import { reactRefreshWrapperPlugin } from 'vite/internal';
 import { WebSocketServer } from 'ws';
 import { createContentPipeline } from './content/pipeline.mjs';
+import { ports, runtimeDir } from './tools/engine.mjs';
+import { registerRuntimeUse, trackProcess } from './tools/processes.mjs';
 import { contentAssetsPlugin } from './vite/contentAssetsPlugin.mjs';
 import { devLeanTransportPlugin } from './vite/devLeanTransportPlugin.ts';
 import { uiKitClientPlugins, unrealOptimizeDeps, unrealResolve } from './vite/environments.mjs';
 
-const PORT = Number(process.env.VGE_PORT ?? 5173);
+const PORT = ports().dev;
 const PATH = '/__unreal';
 
 // The game channel and the eval seam run code in the game, so only the kit's own processes may use them: the
@@ -228,6 +230,8 @@ const server = await createServer({
   },
 });
 await server.listen();
+trackProcess('dev', process.pid);
+registerRuntimeUse(runtimeDir());
 console.log(`[vge] waiting for Unreal on ws://127.0.0.1:${PORT}${PATH}; the shell's app is http://127.0.0.1:${PORT}/ (npm run shell)`);
 
 // If this process is killed outright, the service sees its stdin close and exits by itself.

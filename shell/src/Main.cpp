@@ -97,6 +97,13 @@ int APIENTRY wWinMain(HINSTANCE Instance, HINSTANCE, LPWSTR, int)
 
 	ShellWindow::Options Options;
 	Options.Url = Argument(Count, Values, L"url", L"http://127.0.0.1:5173/");
+	// The worlds talk to the same dev server as the page: http://host:port/ -> ws://host:port/__unreal.
+	Options.DevServer = L"ws" + Options.Url.substr(Options.Url.find(L':'));
+	if (Options.DevServer.back() != L'/')
+	{
+		Options.DevServer += L'/';
+	}
+	Options.DevServer += L"__unreal";
 	Options.GameExe = Argument(Count, Values, L"game", (Root / L"Build/Package/Windows/VibeGameEngine/Binaries/Win64/VibeGameEngine.exe").wstring());
 	Options.LogDir = (Saved / L"Logs").wstring();
 	Options.Width = Number(Argument(Count, Values, L"width", L""), 1280);

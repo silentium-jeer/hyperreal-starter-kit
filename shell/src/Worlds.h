@@ -26,7 +26,7 @@ public:
 		Event What;
 	};
 
-	Worlds(std::wstring GameExe, std::wstring LogDir);
+	Worlds(std::wstring GameExe, std::wstring DevServer, std::wstring LogDir);
 	~Worlds();
 
 	// Starts a world on Scene at Rect (screen pixels). Returns its id, 0 if the process could not start.
@@ -56,6 +56,7 @@ private:
 	void Place(World& World, HWND Shell);
 
 	std::wstring GameExe;
+	std::wstring DevServer;
 	std::wstring LogDir;
 	// Every world process is in this job, which ends them all when the shell process ends however it ends.
 	HANDLE Job = nullptr;

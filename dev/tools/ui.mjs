@@ -5,12 +5,13 @@
 //   node tools/ui.mjs select "<css>" <value>    choose an <option>
 //   node tools/ui.mjs eval "<js expression>"    evaluate in the page and print the result
 //   node tools/ui.mjs console [ms]              print the page console for a while
-// VGE_CDP overrides the endpoint (default http://127.0.0.1:9222, the HUD of `npm run play`'s game; the shell's
-// page is on http://127.0.0.1:9221).
+// VGE_CDP overrides the endpoint (default this kit's HUD port, http://127.0.0.1:9222 in the main kit: the HUD of
+// `npm run play`'s game; the shell's page is on this kit's shell port, 9221).
 import { chromium } from 'playwright-core';
+import { ports } from './engine.mjs';
 
 const [command, ...args] = process.argv.slice(2);
-const endpoint = process.env.VGE_CDP ?? 'http://127.0.0.1:9222';
+const endpoint = process.env.VGE_CDP ?? `http://127.0.0.1:${ports().hud}`;
 
 // Each process shows one page: a game's HUD, or the shell's app.
 const browser = await chromium.connectOverCDP(endpoint);

@@ -38,6 +38,8 @@ public:
 	struct Options
 	{
 		std::wstring Url;
+		// The dev server's channel the worlds' game processes connect to (-DevServer=).
+		std::wstring DevServer;
 		std::wstring GameExe;
 		std::wstring LogDir;
 		int Width = 1280;

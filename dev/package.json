@@ -13,6 +13,8 @@
     "build:cpp": "node tools/build-cpp.mjs",
     "play": "node tools/play.mjs",
     "shell": "node tools/shell.mjs",
+    "stop": "node tools/stop.mjs",
+    "profile": "node tools/profile.mjs",
     "ui": "node tools/ui.mjs",
     "fps": "node tools/fps.mjs",
     "labs:previews": "node tools/lab-previews.mjs",

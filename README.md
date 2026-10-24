@@ -212,6 +212,8 @@ physics. What changes is where it gets its instructions.
 | `node tools/ui.mjs text \| click <css> \| select <css> <v> \| eval <js> \| console` | drives the HTML UI over CDP: a game's HUD (`npm run play` opens it on 9222), or the shell's page with `VGE_CDP=http://127.0.0.1:9221` |
 | `npm run labs:previews [<id>...]` | captures each lab's preview for the shell's lab index: a rendered 1600×900 game window per lab, `HighResShot`, written as `dev/ui/app/ui/labs/previews/<id>.webp` |
 | `npm run build:cpp` | after a C++ change: builds the shared runtime for the new sources (C++ targets, typings, base game, shell) and links the kit to it |
+| `npm run profile -- create <name> \| list \| remove <name>` | a profile: a second checkout on its own branch with its own ports and runtime link, to build and test a feature beside the main kit (below) |
+| `npm run stop [-- game\|dev\|shell]` | stops this kit's own processes, and only those |
 | `npm run typecheck` | `tsc` over game and UI code against the generated typings |
 | `VibeGameEngine.exe -Scene=labs/<id> [-nullrhi]` | an isolated process for one lab, sharing the dev server and content service |
 
@@ -275,7 +277,10 @@ inside the project - `Binaries`, `Plugins/Puerts/Binaries`, `Releases`, `Content
 links to the runtime the first one built; a kit whose C++ differs gets its own.
 
 `npm run setup` builds it on first start; afterwards `npm run build:cpp` builds the runtime for changed
-C++ sources and links the kit to it, and `npm run setup -- --rebuild` builds the current runtime again. The
+C++ sources and links the kit to it, and `npm run setup -- --rebuild` builds the current runtime again. A new
+runtime builds in its own folder of the store, so dev servers keep running on theirs meanwhile; only rebuilding a
+runtime that a running dev server holds is refused (its content service keeps that runtime's editor DLLs open,
+`~/.vge/in-use`), and a kit's dev server is restarted after the kit is linked to another runtime. The
 steps (`dev/tools/steps.mjs`) are the engine's own, run on a copy of the sources inside the runtime:
 `Build.bat` for the `VibeGameEngineEditor` target and the `VibeGameEngine` target (Development and
 Shipping), `-run=VgeGenTypings`, `RunUAT BuildCookRun -cook -stage -pak -iostore -archive
@@ -283,13 +288,36 @@ Shipping), `-run=VgeGenTypings`, `RunUAT BuildCookRun -cook -stage -pak -iostore
 engine's Third Person template resources (`Templates/TemplateResources/High/Characters/Content/Mannequins`,
 not in git, 126 MB) to `Content/Characters/Mannequins`, the path the template uses.
 
+### Profiles: building and testing a feature beside the main kit
+
+```bash
+cd dev && npm run profile -- create anim-graph
+```
+
+A profile is a second checkout of the kit, `../hyperreal-starter-kit.<name>`, a git worktree on the branch
+`profile/<name>` made from the last commit, with its own `vge.config.json`: its own ports (the main kit's + 10 per
+profile: dev server 5183, HUD DevTools 9232, shell DevTools 9231 for the first) and its own link to the runtime for
+its sources. Its dependencies are junctions to the main checkout's `node_modules`. Everything in it is the kit's
+usual commands run from its own `dev/`: `npm run dev`, `npm run play`, `npm run build:cpp`, `node tools/game.mjs`,
+`node tools/ui.mjs`. Its games connect to its own dev server (`-DevServer=`, also for the shell's worlds), and each
+kit lists the processes it started (`Saved/processes.json`), so `npm run stop` in a profile ends only that
+profile's dev server, games and shell. A profile whose C++ sources match a built runtime links to it at once; one
+with changed C++ builds its own beside the others, while the main kit and other profiles keep running.
+
+When the feature is done and checked, it goes into the main kit by merging `profile/<name>` there and running
+`npm run build:cpp`: when nothing else changed in the main kit meanwhile, the merged sources are the profile's and
+their runtime is already built, so the kit is only relinked; otherwise the merged runtime builds beside the running
+one. `npm run profile -- remove <name>` stops the profile's processes and removes its checkout (its links are
+removed as links first); the branch stays. `npm run profile -- list` shows every checkout with its ports, runtime
+and what runs in it.
+
 ### Release build
 
 ```bash
 cd dev && npm run build
 ```
 
-Makes the Shipping game in `Build/Release/Windows` (the dev server must be stopped). What goes in is what
+Makes the Shipping game in `Build/Release/Windows` (this kit's dev server must be stopped). What goes in is what
 the program imports: Vite bundles `src/release.ts` into `Content/JavaScript/vge/game.js` and the UI into
 `Content/UI`; every model file the bundle imports is imported into `/Game/Vge/Imported/<folder>/<Name>` and
 its object paths are written into the bundle. `BuildCookRun -clientconfig=Shipping` then cooks the base
