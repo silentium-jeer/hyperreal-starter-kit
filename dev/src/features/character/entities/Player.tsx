@@ -6,13 +6,13 @@ import { isMouseCaptured } from '../../../shared/engine/mouse';
 import { useFrame, useMouseCapture } from '../../../shared/react';
 import type { Vector3 } from '../../../shared/react/props';
 import { MANNEQUIN_MESHES, type MannequinVariant } from './mannequin';
+import { MannequinLocomotion, setLocomotion } from './MannequinLocomotion';
 
 // The player: a stock Mannequin on an ACharacter (capsule + CharacterMovement), driven by WASD and Space or a
 // gamepad's left stick and A, with a camera orbiting it, turned by the captured mouse or the right stick. Movement
-// is relative to the camera's heading. It is animated by the Third Person template's own animation graph
-// (ABP_Unarmed: idle / walk / run blended by speed, jump, fall and land), which reads CharacterMovement itself.
+// is relative to the camera's heading. It is animated by an animation graph written here (MannequinLocomotion:
+// idle / walk / run blended by speed, jump, fall and land), fed from CharacterMovement every frame.
 const CAPSULE_HALF_HEIGHT = 88;
-const ANIMATION_GRAPH = '/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed.ABP_Unarmed_C';
 const CAMERA_DISTANCE = 560;
 const CAMERA_TARGET_HEIGHT = 90;
 const CAMERA_START_PITCH = -18;
@@ -41,10 +41,8 @@ export interface PlayerProps {
 export function Player({ at, variant = 'manny' }: PlayerProps) {
   const character = useRef<UE.Character>(null);
   const camera = useRef<UE.CameraActor>(null);
+  const animation = useRef<UE.VgeAnimInstance>(null);
   useEffect(() => {
-    const mesh = character.current!.Mesh;
-    mesh.SetAnimationMode(UE.EAnimationMode.AnimationBlueprint, true);
-    mesh.SetAnimInstanceClass(UE.Class.Load(ANIMATION_GRAPH));
     UE.GameplayStatics.GetPlayerController(world, 0).Possess(character.current!);
     viewFrom(camera.current!);
   }, []);
@@ -85,6 +83,8 @@ export function Player({ at, variant = 'manny' }: PlayerProps) {
     const target = UE.KismetMathLibrary.Add_VectorVector(pawn.K2_GetActorLocation(), UE.KismetMathLibrary.Multiply_VectorFloat(UP, CAMERA_TARGET_HEIGHT));
     const back = UE.KismetMathLibrary.Multiply_VectorFloat(UE.KismetMathLibrary.GetForwardVector(rotation), -CAMERA_DISTANCE);
     camera.current?.K2_SetActorLocationAndRotation(UE.KismetMathLibrary.Add_VectorVector(target, back), rotation, false, ignoredHit, false);
+
+    setLocomotion(animation.current, pawn.CharacterMovement);
   });
 
   return (
@@ -96,7 +96,9 @@ export function Player({ at, variant = 'manny' }: PlayerProps) {
         // Mannequin meshes face local +Y with the pivot at the feet; the capsule's origin is its centre.
         mesh={{ skeletalMeshAsset: MANNEQUIN_MESHES[variant], location: [0, 0, -CAPSULE_HALF_HEIGHT], rotation: [0, -90, 0] }}
         characterMovement={{ orientRotationToMovement: true, rotationRate: [0, 720, 0], maxWalkSpeed: 450, jumpZVelocity: 520 }}
-      />
+      >
+        <MannequinLocomotion graph={animation} />
+      </character>
       <cameraActor ref={camera} location={at} rotation={[CAMERA_START_PITCH, 0, 0]} cameraComponent={{ constrainAspectRatio: false }} />
     </>
   );

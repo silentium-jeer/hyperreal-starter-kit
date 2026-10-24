@@ -7,6 +7,6 @@ public class VibeGameEngine : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PublicDependencyModuleNames.Add("JsEnv");
-		PrivateDependencyModuleNames.AddRange(new string[] { "Projects", "RenderCore", "WebBrowser", "Slate", "SlateCore", "InputCore", "Json" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Projects", "RenderCore", "WebBrowser", "Slate", "SlateCore", "InputCore", "Json", "AnimGraphRuntime" });
 	}
 }

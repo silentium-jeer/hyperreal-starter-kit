@@ -4,13 +4,16 @@ import Reconciler from 'react-reconciler';
 import { ConcurrentRoot, DefaultEventPriority, NoEventPriority } from 'react-reconciler/constants';
 import { isA, classNameOf, isElementClass } from './catalog';
 import { same, transformChanged, transformOf, toRotator, toVector, writeProps } from './apply';
+import { isAnimElement, mountGraph, newAnimId, reshape, submitReshaped, unmountGraph, updateAnimNode } from './anim';
 import { $ref } from 'puerts';
 
 // The scene renderer: React elements named after engine classes (Typing/ue/ue-jsx.d.ts) become actors and
 // components in the world. Static meshes that need nothing of their own are packed the way a Packed Level Actor
 // packs them: one instanced component per descriptor (VgeInstancePool), one instance per element.
+// Animation graph elements (<animGraph> and its nodes, anim.ts) are the 'anim' kind: not engine objects, a graph
+// description the mesh's anim instance runs.
 
-type Kind = 'actor' | 'component' | 'packed';
+type Kind = 'actor' | 'component' | 'packed' | 'anim';
 
 export interface HostNode {
   type: string;
@@ -24,6 +27,9 @@ export interface HostNode {
   object?: any;
   holder?: UE.Actor;
   instance?: UE.VgeInstance;
+  // Anim nodes: the node's id in the graph description; an <animGraph>: the mesh it animates.
+  animId?: number;
+  mesh?: UE.SkeletalMeshComponent;
 }
 
 export interface SceneContainer {
@@ -128,7 +134,9 @@ function mount(world: UE.World, node: HostNode) {
   if (node.mounted) return;
   if (node.kind === 'packed') mountPacked(world, node);
   else if (node.kind === 'actor') mountActor(world, node);
-  else mountComponent(world, node);
+  else if (node.kind === 'anim') {
+    if (node.type === 'animGraph') mountGraph(node);
+  } else mountComponent(world, node);
   node.mounted = true;
   for (const child of node.children) mount(world, child);
 }
@@ -136,7 +144,8 @@ function mount(world: UE.World, node: HostNode) {
 function unmount(world: UE.World, node: HostNode) {
   if (!node.mounted) return;
   for (const child of node.children) unmount(world, child);
-  if (node.kind === 'packed' && node.instance) poolOf(world).RemoveInstance(node.instance);
+  if (node.kind === 'anim' && node.type === 'animGraph') unmountGraph(node);
+  else if (node.kind === 'packed' && node.instance) poolOf(world).RemoveInstance(node.instance);
   else if (node.kind === 'component' && UE.KismetSystemLibrary.IsValid(node.object)) node.object.K2_DestroyComponent(node.object);
   else if (node.kind === 'actor' && UE.KismetSystemLibrary.IsValid(node.object)) node.object.K2_DestroyActor();
   if (node.holder && UE.KismetSystemLibrary.IsValid(node.holder)) node.holder.K2_DestroyActor();
@@ -181,6 +190,7 @@ function update(world: UE.World, node: HostNode, oldProps: Record<string, any>, 
 
 function setHidden(world: UE.World, node: HostNode, hidden: boolean) {
   node.hidden = hidden;
+  if (node.kind === 'anim') return;
   if (node.kind === 'packed') {
     if (hidden && node.instance) poolOf(world).RemoveInstance(node.instance);
     else if (!hidden) mountPacked(world, node);
@@ -189,6 +199,13 @@ function setHidden(world: UE.World, node: HostNode, hidden: boolean) {
   } else if (node.object instanceof UE.SceneComponent) {
     node.object.SetHiddenInGame(hidden, true);
   }
+}
+
+// Anim nodes live inside an <animGraph>, and an <animGraph> holds anim nodes only.
+function checkNesting(parent: HostNode | null, child: HostNode) {
+  if (child.kind === 'anim' && child.type !== 'animGraph' && parent?.kind !== 'anim') throw new Error(`<${child.type}> belongs inside an <animGraph>`);
+  if (child.kind === 'anim' && child.type === 'animGraph' && parent?.kind === 'anim') throw new Error('<animGraph> cannot be inside another animation element');
+  if (child.kind !== 'anim' && parent?.kind === 'anim') throw new Error(`<${child.type}> cannot be inside <${parent.type}>; it holds animation nodes`);
 }
 
 let updatePriority: number = NoEventPriority;
@@ -210,6 +227,9 @@ const reconciler = Reconciler({
   noTimeout: -1,
 
   createInstance(type: string, props: Props): HostNode {
+    if (isAnimElement(type)) {
+      return { type, className: type, kind: 'anim', props, parent: null, children: [], mounted: false, hidden: false, animId: type === 'animGraph' ? undefined : newAnimId() };
+    }
     const className = classNameOf(type);
     if (!isElementClass(className)) throw new Error(`<${type}> is not an engine actor or component class (Typing/ue/ue-jsx.json)`);
     return { type, className, kind: kindOf(className, props), props, parent: null, children: [], mounted: false, hidden: false };
@@ -218,6 +238,7 @@ const reconciler = Reconciler({
     throw new Error(`text "${text}" cannot be part of a scene; scene elements are actors and components`);
   },
   appendInitialChild(parent: HostNode, child: HostNode) {
+    checkNesting(parent, child);
     child.parent = parent;
     parent.children.push(child);
   },
@@ -228,16 +249,18 @@ const reconciler = Reconciler({
   getChildHostContext: (parentContext: object) => parentContext,
   getPublicInstance: (node: HostNode) => node.object ?? node,
   prepareForCommit: () => null,
-  resetAfterCommit: () => {},
+  resetAfterCommit: submitReshaped,
   preparePortalMount: () => {},
 
   appendChildToContainer(container: SceneContainer, child: HostNode) {
+    checkNesting(null, child);
     container.children = container.children.filter((node) => node !== child);
     container.children.push(child);
     child.parent = null;
     mount(container.world, child);
   },
   insertInContainerBefore(container: SceneContainer, child: HostNode, before: HostNode) {
+    checkNesting(null, child);
     container.children = container.children.filter((node) => node !== child);
     container.children.splice(Math.max(0, container.children.indexOf(before)), 0, child);
     child.parent = null;
@@ -248,20 +271,25 @@ const reconciler = Reconciler({
     unmount(container.world, child);
   },
   appendChild(parent: HostNode, child: HostNode) {
+    checkNesting(parent, child);
     parent.children = parent.children.filter((node) => node !== child);
     parent.children.push(child);
     child.parent = parent;
     if (parent.mounted) mount(world(), child);
+    reshape(parent);
   },
   insertBefore(parent: HostNode, child: HostNode, before: HostNode) {
+    checkNesting(parent, child);
     parent.children = parent.children.filter((node) => node !== child);
     parent.children.splice(Math.max(0, parent.children.indexOf(before)), 0, child);
     child.parent = parent;
     if (parent.mounted) mount(world(), child);
+    reshape(parent);
   },
   removeChild(parent: HostNode, child: HostNode) {
     parent.children = parent.children.filter((node) => node !== child);
     unmount(world(), child);
+    reshape(parent);
   },
   clearContainer(container: SceneContainer) {
     for (const child of container.children) unmount(container.world, child);
@@ -269,6 +297,10 @@ const reconciler = Reconciler({
   },
 
   commitUpdate(node: HostNode, _type: string, oldProps: Props, newProps: Props) {
+    if (node.kind === 'anim') {
+      updateAnimNode(node, oldProps, newProps);
+      return;
+    }
     const kind = kindOf(node.className, newProps);
     if (kind !== node.kind) {
       // A static mesh that starts needing its own component (physics, events, a ref) leaves the pack, and back.

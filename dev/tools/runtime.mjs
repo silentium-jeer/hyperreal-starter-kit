@@ -1,11 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, cpSync, createWriteStream, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, createWriteStream, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { engine, repoRoot, saveRuntime } from './engine.mjs';
+import { isAlive, runtimeUsers } from './processes.mjs';
 import { buildShell, buildTargets, masterMaterials, packageBase, refuseRebuildingRuntimeInUse, typings } from './steps.mjs';
 
 export const V8_VERSION = '11.8.172';
@@ -52,6 +53,19 @@ function junction(target, link) {
 
 const V8_PARTS = ['Inc', 'Lib/Win64MD', 'Lib/Win64DLL'];
 const hasV8 = (dir) => V8_PARTS.every((part) => existsSync(join(dir, part)));
+
+// The runtime's V8 is a junction to the shared copy. A runtime folder on a volume without junctions (exFAT: the
+// store's folder linked to another drive) gets its own copy instead.
+function linkV8(tag, link) {
+  if (!isLink(link) && hasV8(link)) return;
+  try {
+    junction(sharedV8, link);
+  } catch (err) {
+    if (err.code !== 'EISDIR' && err.code !== 'EPERM') throw err;
+    for (const part of V8_PARTS) cpSync(join(sharedV8, part), join(link, part), { recursive: true });
+    console.log(`[${tag}] ${dirname(link)} cannot hold a junction; V8 copied into the runtime`);
+  }
+}
 
 async function fetchV8(tag) {
   if (hasV8(sharedV8)) return;
@@ -123,8 +137,9 @@ export async function ensureRuntime(tag, { rebuild = false } = {}) {
   console.log(`[${tag}] building runtime ${key} in ${dir} (once per machine for these sources)`);
   rmSync(join(dir, 'runtime.json'), { force: true });
   stageSources(dir, files);
+  writeFileSync(join(dir, BUILDING), JSON.stringify({ pid: process.pid }));
   await fetchV8(tag);
-  junction(sharedV8, join(dir, 'Plugins', 'Puerts', 'ThirdParty', V8_DIR));
+  linkV8(tag, join(dir, 'Plugins', 'Puerts', 'ThirdParty', V8_DIR));
   copyMannequin(tag, dir);
   buildTargets(tag, dir);
   typings(tag, dir);
@@ -133,8 +148,74 @@ export async function ensureRuntime(tag, { rebuild = false } = {}) {
   buildShell(tag, dir);
   pruneBuildLeftovers(dir);
   writeFileSync(join(dir, 'runtime.json'), `${JSON.stringify({ key, engine: engine().root, sources: files.length, builtAt: new Date().toISOString() }, null, 2)}\n`);
+  rmSync(join(dir, BUILDING), { force: true });
   console.log(`[${tag}] runtime ${key} built in ${((Date.now() - started) / 60000).toFixed(1)} min`);
   return dir;
+}
+
+// Old runtimes go away by themselves: every link of a kit removes the runtimes no kit on this machine links to, that
+// no running dev server holds and that no build is writing. Kits register what they link in ~/.vge/kits.
+const BUILDING = 'building.json';
+const kitsDir = join(storeRoot, 'kits');
+
+function registerKit(dir) {
+  mkdirSync(kitsDir, { recursive: true });
+  const name = createHash('sha256').update(resolve(repoRoot).toLowerCase()).digest('hex').slice(0, 16);
+  writeFileSync(join(kitsDir, `${name}.json`), JSON.stringify({ kit: resolve(repoRoot), runtime: resolve(dir) }));
+}
+
+// The checkouts of this repository (the main kit and its profiles) count as registered even before their next link.
+function worktrees() {
+  const out = execFileSync('git', ['worktree', 'list', '--porcelain'], { cwd: repoRoot, encoding: 'utf8' });
+  return [...out.matchAll(/^worktree (.+)$/gm)].map((match) => resolve(match[1]));
+}
+
+function linkedRuntimes() {
+  const linked = new Set();
+  for (const kit of worktrees()) {
+    const config = join(kit, 'vge.config.json');
+    const runtime = existsSync(config) ? JSON.parse(readFileSync(config, 'utf8')).runtime : undefined;
+    if (runtime) linked.add(resolve(runtime));
+  }
+  if (!existsSync(kitsDir)) return linked;
+  for (const name of readdirSync(kitsDir)) {
+    const file = join(kitsDir, name);
+    const { kit } = JSON.parse(readFileSync(file, 'utf8'));
+    const config = join(kit, 'vge.config.json');
+    const runtime = existsSync(config) ? JSON.parse(readFileSync(config, 'utf8')).runtime : undefined;
+    if (runtime) linked.add(resolve(runtime));
+    else rmSync(file, { force: true });
+  }
+  return linked;
+}
+
+function beingBuilt(dir) {
+  const file = join(dir, BUILDING);
+  return existsSync(file) && isAlive(JSON.parse(readFileSync(file, 'utf8')).pid);
+}
+
+// A runtime folder may be a junction to another drive, and holds a junction to the shared V8: links are removed as
+// links (rmSync does not follow them), the folder a store junction points to is removed with it.
+function removeRuntime(dir) {
+  const target = isLink(dir) ? resolve(readlinkSync(dir)) : null;
+  if (target) {
+    rmSync(target, { recursive: true, force: true });
+    unlinkSync(dir);
+  } else {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+export function pruneRuntimes(tag) {
+  const root = join(storeRoot, 'Runtime');
+  if (!existsSync(root)) return;
+  const keep = linkedRuntimes();
+  for (const name of readdirSync(root)) {
+    const dir = join(root, name);
+    if (keep.has(resolve(dir)) || runtimeUsers(dir).length || beingBuilt(dir)) continue;
+    removeRuntime(dir);
+    console.log(`[${tag}] removed runtime ${name}: no kit links it, nothing runs on it`);
+  }
 }
 
 export function linkKit(tag, dir) {
@@ -150,5 +231,7 @@ export function linkKit(tag, dir) {
     junction(join(dir, path), link);
   }
   saveRuntime(dir);
+  registerKit(dir);
   console.log(`[${tag}] kit linked to runtime ${dir}`);
+  pruneRuntimes(tag);
 }

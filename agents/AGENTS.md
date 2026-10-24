@@ -70,6 +70,7 @@
   - the look: a capture of the rendered game window (AGENTS.md rule 1).
 - Before starting a new dev server, check whether one is already running: one `npm run dev` serves any number of game processes, and `node tools/game.mjs "1"` prints `no Unreal process is connected to the dev server` when no game is attached.
 - `npm run play` starts a detached game process and prints its pid and log path. Close the game processes you started after the task that used them, with `npm run stop` (this kit's processes only), never by process name: other agents' games run under the same name.
+- The main checkout is the stable kit: no development happens in it. It only receives finished, verified work merged from a profile. Every feature, research build or experiment is done in its own profile.
 - Work that changes C++ or needs its own build and tests while others keep using the main kit goes into a profile: `npm run profile -- create <name>` gives a checkout on `profile/<name>` with its own ports and runtime (README, "Profiles"). Run every command from that profile's `dev/`; the ports and the dev server are its own. It goes into the main kit by merging the branch and `npm run build:cpp` there.
 
 ## Validation
