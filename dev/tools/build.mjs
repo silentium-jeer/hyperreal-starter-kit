@@ -10,11 +10,13 @@
 import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import react from '@vitejs/plugin-react';
-import { createBuilder } from 'vite';
+import { createBuilder, createServer } from 'vite';
 import { createContentService } from '../content/service.mjs';
 import { assetName, createDecoder } from '../content/decode.mjs';
+import { createMaterialModules, handleModule } from '../content/materials.mjs';
 import { contentAssetsPlugin } from '../vite/contentAssetsPlugin.mjs';
-import { uiKitClientPlugins, unrealResolve } from '../vite/environments.mjs';
+import { materialsEnvironment, uiKitClientPlugins, unrealResolve } from '../vite/environments.mjs';
+import { materialAssetsPlugin } from '../vite/materialAssetsPlugin.mjs';
 import { engine, project, repoRoot } from './engine.mjs';
 import { refuseWhileOwnDevServerRuns, step } from './steps.mjs';
 
@@ -53,6 +55,39 @@ const imported = [];
 // src/features/demo/assets/flight-case.glb -> /Game/Vge/Imported/src/features/demo/assets/FlightCase
 const destOf = (key) => [IMPORTED, ...dirname(key).split('/').filter((part) => part !== '.').map((part) => part.replace(/[^A-Za-z0-9_]/g, '_')), assetName(key)].join('/');
 
+// Material modules the bundle imports (vite/materialAssetsPlugin.mjs) are evaluated in a `materials` environment, as
+// in the dev server, and each export is built by the content service under /Game/Vge/Imported/<folder>; the handles
+// in the bundle carry the cooked object paths.
+const materialServer = await createServer({
+  configFile: false,
+  root: devDir,
+  logLevel: 'warn',
+  appType: 'custom',
+  server: { middlewareMode: true, hmr: false, ws: false, watch: null },
+  environments: { materials: materialsEnvironment },
+});
+const materialModules = createMaterialModules({
+  root: devDir,
+  environment: () => materialServer.environments.materials,
+  folderRoot: (key) => [IMPORTED, ...dirname(key).split('/').filter((part) => part !== '.').map((part) => part.replace(/[^A-Za-z0-9_]/g, '_'))].join('/'),
+});
+const builtMaterials = new Set();
+async function buildMaterialModule(file, key) {
+  const exports = await materialModules.describe(file);
+  const paths = {};
+  for (const entry of exports) {
+    for (const asset of [entry.base, entry].filter(Boolean)) {
+      if (builtMaterials.has(asset.path)) continue;
+      await service.call(asset.kind === 'instance' ? 'material-instance' : 'material', asset.request);
+      builtMaterials.add(asset.path);
+      console.log(`[${TAG}] ${key} -> ${asset.path}`);
+    }
+    paths[entry.exportKey] = entry.path;
+  }
+  imported.push(key);
+  return handleModule(exports, paths);
+}
+
 const builder = await createBuilder({
   configFile: false,
   root: devDir,
@@ -71,6 +106,7 @@ const builder = await createBuilder({
         return result.objects;
       },
     }),
+    materialAssetsPlugin({ root: devDir, onImport: buildMaterialModule }),
   ],
   environments: {
     unreal: {
@@ -107,6 +143,7 @@ try {
 } finally {
   // The service holds the editor target's DLLs, which BuildCookRun rebuilds if they are out of date.
   await service.stop();
+  await materialServer.close();
 }
 if (!existsSync(bundle)) {
   console.error(`[${TAG}] the bundle ${bundle} was not written`);

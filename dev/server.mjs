@@ -13,9 +13,11 @@ import { createFab } from './content/fab.mjs';
 import { createContentPipeline } from './content/pipeline.mjs';
 import { ports, runtimeDir, shellSecret } from './tools/engine.mjs';
 import { registerRuntimeUse, trackProcess } from './tools/processes.mjs';
+import { createMaterialModules, handleModule } from './content/materials.mjs';
 import { contentAssetsPlugin } from './vite/contentAssetsPlugin.mjs';
 import { devLeanTransportPlugin } from './vite/devLeanTransportPlugin.ts';
-import { uiKitClientPlugins, unrealOptimizeDeps, unrealResolve } from './vite/environments.mjs';
+import { materialsEnvironment, uiKitClientPlugins, unrealOptimizeDeps, unrealResolve } from './vite/environments.mjs';
+import { materialAssetsPlugin } from './vite/materialAssetsPlugin.mjs';
 
 const PORT = ports().dev;
 const PATH = '/__unreal';
@@ -89,6 +91,55 @@ const pipeline = createContentPipeline({ projectDir: resolve(process.cwd(), '..'
 
 function contentPlugins() {
   let unreal;
+  let server;
+  // Material modules: described in the `materials` environment, built by the pipeline, imported by the game as handles.
+  const materials = createMaterialModules({ root: process.cwd(), environment: () => server.environments.materials, folderRoot: '/VgeLive/Materials' });
+  const handles = new Map();
+  const buildMaterials = (key, exports) => {
+    console.log(`[content] building materials of ${key}`);
+    pipeline.enqueueMaterials(key, exports, (err, result) => {
+      if (err) {
+        console.error(`[content] ${err.message}`);
+        unreal().send('vge:content-error', { file: key, message: err.message });
+        return;
+      }
+      for (const line of result.errors ?? []) console.error(`[content] ${key}: ${line}`);
+      if (result.errors?.length) unreal().send('vge:content-error', { file: key, message: `the cook reported material errors:\n${result.errors.join('\n')}` });
+      unreal().send('vge:content', result.manifest);
+    });
+  };
+  // A build is needed when an export's asset (its description's hash) is not the one the mounted build has.
+  const needsBuild = (exports) => {
+    const { materials: built, assets } = pipeline.materialState();
+    return exports.some((e) => built[e.exportKey]?.path !== e.path || !assets[e.path] || (e.base && !assets[e.base.path]));
+  };
+  const describeMaterials = async (file, key) => {
+    const exports = await materials.describe(file);
+    const code = handleModule(exports);
+    handles.set(key, code);
+    if (needsBuild(exports)) buildMaterials(key, exports);
+    return code;
+  };
+  // An edit of a material module, or of anything it imports: its materials are described again, built when they
+  // changed, and the game reloads its handle module only when the exports themselves changed.
+  const onFileChange = async (file) => {
+    const affected = materials.affectedBy(file);
+    if (!affected.length) return;
+    materials.invalidate(file);
+    for (const moduleFile of affected) {
+      const key = materials.keyOf(moduleFile);
+      try {
+        const previous = handles.get(key);
+        const code = await describeMaterials(moduleFile, key);
+        if (previous !== undefined && previous !== code) {
+          for (const node of server.environments.unreal.moduleGraph.getModulesByFile(moduleFile) ?? []) await server.environments.unreal.reloadModule(node);
+        }
+      } catch (err) {
+        console.error(`[content] ${key}: ${err?.stack ?? err}`);
+        unreal().send('vge:content-error', { file: key, message: String(err?.message ?? err) });
+      }
+    }
+  };
   const build = (file, key) => {
     console.log(`[content] building ${key}`);
     pipeline.enqueue(file, key, (err, result) => {
@@ -103,7 +154,9 @@ function contentPlugins() {
   return [
     {
       name: 'vge:content',
-      configureServer(server) {
+      configureServer(viteServer) {
+        server = viteServer;
+        server.watcher.on('change', onFileChange);
         unrealChannel.attach(server.httpServer);
         unreal = () => server.environments.unreal.hot;
         unreal().on('vge:content-sync', (_data, client) => client.send('vge:content', pipeline.manifest()));
@@ -119,6 +172,7 @@ function contentPlugins() {
       },
       onChange: build,
     }),
+    materialAssetsPlugin({ root: process.cwd(), onImport: describeMaterials }),
   ];
 }
 
@@ -318,6 +372,7 @@ const server = await createServer({
           new DevEnvironment(name, config, { hot: true, transport: unrealChannel, remoteRunner: { inlineSourceMap: false } }),
       },
     },
+    materials: materialsEnvironment,
     client: {
       // The shell page reads the game's lab manifests (ui/app/labs/labRegistry.ts), whose loaders point at game
       // code; the dependency scan follows them, and Puerts' native modules exist only inside the engine.

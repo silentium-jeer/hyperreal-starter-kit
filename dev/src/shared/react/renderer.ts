@@ -3,7 +3,8 @@ import { createContext } from 'react';
 import Reconciler from 'react-reconciler';
 import { ConcurrentRoot, DefaultEventPriority, NoEventPriority } from 'react-reconciler/constants';
 import { isA, classNameOf, isElementClass } from './catalog';
-import { same, transformChanged, transformOf, toRotator, toVector, writeProps } from './apply';
+import { isReserved, same, transformChanged, transformOf, toRotator, toVector, writeProp, writeProps } from './apply';
+import { isMaterialValue, materialKeyOf, materialRefsIn, watchMaterials } from './materials';
 import { isAnimElement, mountGraph, newAnimId, reshape, submitReshaped, unmountGraph, updateAnimNode } from './anim';
 import { $ref } from 'puerts';
 
@@ -30,6 +31,9 @@ export interface HostNode {
   // Anim nodes: the node's id in the graph description; an <animGraph>: the mesh it animates.
   animId?: number;
   mesh?: UE.SkeletalMeshComponent;
+  // The material handles among the props (materials.ts) and the subscription that rewrites them with each new build.
+  materialWatch?: string;
+  stopMaterials?: () => void;
 }
 
 export interface SceneContainer {
@@ -54,9 +58,10 @@ const poolOf = (world: UE.World) => (pool ??= UE.SubsystemBlueprintLibrary.GetWo
 const templates = new Map<string, UE.StaticMeshComponent>();
 function templateFor(world: UE.World, props: Record<string, any>) {
   const meshProps = Object.fromEntries(Object.entries(props).filter(([prop]) => !['children', 'key', 'ref', 'location', 'rotation', 'scale'].includes(prop)));
-  // Engine objects (meshes, materials) enter the key by path: the same asset is the same group.
+  // Engine objects (meshes, materials) enter the key by path: the same asset is the same group. A material handle
+  // enters it by the asset it has now, so its next build makes a new group.
   const sorted = Object.keys(meshProps).sort().map((prop) => [prop, meshProps[prop]]);
-  const key = JSON.stringify(sorted, (_, value) => (value instanceof UE.Object ? UE.KismetSystemLibrary.GetPathName(value) : value));
+  const key = JSON.stringify(sorted, (_, value) => (value instanceof UE.Object ? UE.KismetSystemLibrary.GetPathName(value) : isMaterialValue(value) ? materialKeyOf(value) : value));
   let template = templates.get(key);
   if (!template) {
     template = UE.NewObject(UE.StaticMeshComponent.StaticClass(), poolOf(world)) as UE.StaticMeshComponent;
@@ -130,6 +135,39 @@ function setRelativeTransform(component: UE.SceneComponent, props: Record<string
   component.SetRelativeScale3D(toVector(props.scale ?? 1));
 }
 
+// A material handle among an element's props is written again each time its material gets a new build: a packed
+// element joins the group of the new asset, any other element gets the new asset in its own property.
+function rewriteMaterials(world: UE.World, node: HostNode) {
+  if (!node.mounted || node.hidden) return;
+  if (node.kind === 'packed') {
+    if (node.instance) poolOf(world).RemoveInstance(node.instance);
+    mountPacked(world, node);
+    return;
+  }
+  const target = node.object;
+  if (!target || !UE.KismetSystemLibrary.IsValid(target)) return;
+  const className = target.GetClass().GetName();
+  let written = false;
+  for (const [prop, value] of Object.entries(node.props)) {
+    if (isReserved(prop) || !materialRefsIn({ [prop]: value }).length) continue;
+    try {
+      written = writeProp(target, className, prop, value) || written;
+    } catch (err: any) {
+      console.error(`[react] ${className}.${prop}: ${err?.message ?? err}`);
+    }
+  }
+  if (written && target instanceof UE.ActorComponent) UE.VgeScriptLibrary.ReregisterComponent(target);
+}
+
+function syncMaterials(world: UE.World, node: HostNode) {
+  const refs = node.kind === 'anim' ? [] : materialRefsIn(node.props);
+  const watch = refs.map((ref) => ref.key).join('|');
+  if (watch === (node.materialWatch ?? '')) return;
+  node.stopMaterials?.();
+  node.materialWatch = watch;
+  node.stopMaterials = refs.length ? watchMaterials(refs, () => rewriteMaterials(world, node)) : undefined;
+}
+
 function mount(world: UE.World, node: HostNode) {
   if (node.mounted) return;
   if (node.kind === 'packed') mountPacked(world, node);
@@ -138,11 +176,14 @@ function mount(world: UE.World, node: HostNode) {
     if (node.type === 'animGraph') mountGraph(node);
   } else mountComponent(world, node);
   node.mounted = true;
+  syncMaterials(world, node);
   for (const child of node.children) mount(world, child);
 }
 
 function unmount(world: UE.World, node: HostNode) {
   if (!node.mounted) return;
+  node.stopMaterials?.();
+  node.stopMaterials = node.materialWatch = undefined;
   for (const child of node.children) unmount(world, child);
   if (node.kind === 'anim' && node.type === 'animGraph') unmountGraph(node);
   else if (node.kind === 'packed' && node.instance) poolOf(world).RemoveInstance(node.instance);
@@ -166,6 +207,7 @@ function refreshPacked(world: UE.World, node: HostNode) {
 
 function update(world: UE.World, node: HostNode, oldProps: Record<string, any>, newProps: Record<string, any>) {
   node.props = newProps;
+  syncMaterials(world, node);
   if (node.kind === 'packed') {
     const meshChanged = Object.keys({ ...oldProps, ...newProps }).some((prop) => !['children', 'key', 'location', 'rotation', 'scale'].includes(prop) && !same(oldProps[prop], newProps[prop]));
     if (meshChanged) {

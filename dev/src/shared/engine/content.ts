@@ -1,4 +1,5 @@
 import * as UE from 'ue';
+import type { MaterialParamType, MaterialRef } from '../material/types';
 import { gameInstance, own } from './world';
 
 // Content from model files the game code imports (`import flightCase from '../assets/flight-case.glb'`,
@@ -33,27 +34,43 @@ export interface ContentPack {
   shaderLibrary: string;
   build: number;
 }
+// The asset an export of a material module has in the mounted build (content/pipeline.mjs buildMaterials).
+export interface ContentMaterial {
+  path: string;
+  class: string;
+  kind: 'material' | 'instance';
+  usage: string[];
+  params: Record<string, MaterialParamType>;
+  build: number;
+}
 interface Manifest {
   pak: string | null;
   plugin: string;
   build: number;
+  // The newest container's own shader library (VgeLive<tag>): a name per build, so each build's shaders are a
+  // library of their own (content/pipeline.mjs cookAndPackage).
+  shaderLibrary?: string;
   assets: Record<string, { build: number; objects: ContentObject[] }>;
+  materials?: Record<string, ContentMaterial>;
   packs: Record<string, ContentPack>;
 }
 type AssetListener = (asset: ContentAsset) => void;
 type PackListener = (pack: ContentPack) => void;
+type MaterialListener = (material: ContentMaterial) => void;
 
 interface LiveContent {
   mounted: Set<string>;
   manifest: Manifest | null;
   listeners: Map<string, Set<AssetListener>>;
   packListeners?: Map<string, Set<PackListener>>;
+  materialListeners?: Map<string, Set<MaterialListener>>;
 }
 declare const __vge: { content?: LiveContent };
 
 // Lives on the bootstrap global: mounted containers and subscribers survive re-evaluation of this module.
 const live: LiveContent = (__vge.content ??= { mounted: new Set(), manifest: null, listeners: new Map() });
 const packListeners = (live.packListeners ??= new Map());
+const materialListeners = (live.materialListeners ??= new Map());
 
 export function contentAsset(key: string, objects?: ContentObject[]): ContentAssetRef {
   return { key, objects };
@@ -95,7 +112,7 @@ function apply(manifest: Manifest | null) {
   try {
     if (!manifest) return;
     if (manifest.pak && !live.mounted.has(manifest.pak)) {
-      if (!gameInstance.MountContent(manifest.pak, manifest.plugin, '')) {
+      if (!gameInstance.MountContent(manifest.pak, manifest.plugin, manifest.shaderLibrary ?? '')) {
         console.error(`[content] could not mount ${manifest.pak}`);
         return;
       }
@@ -118,6 +135,10 @@ function apply(manifest: Manifest | null) {
     for (const [name, listeners] of packListeners) {
       const pack = manifest.packs?.[name];
       if (pack && previous?.packs?.[name]?.build !== pack.build) notifyPack(pack, listeners);
+    }
+    for (const [key, listeners] of materialListeners) {
+      const material = manifest.materials?.[key];
+      if (material && previous?.materials?.[key]?.path !== material.path) notifyMaterial(key, material, listeners);
     }
     console.log(`[content] build ${manifest.build} mounted, assets: ${Object.keys(manifest.assets).join(', ')}; packs: ${Object.keys(manifest.packs ?? {}).join(', ')}`);
   } catch (err: any) {
@@ -159,6 +180,43 @@ export function onPack(name: string, listener: PackListener) {
   const pack = live.manifest?.packs?.[name];
   if (pack) notifyPack(pack, [listener]);
   return own(() => packListeners.get(name)?.delete(listener));
+}
+
+function notifyMaterial(key: string, material: ContentMaterial, listeners: Iterable<MaterialListener>) {
+  for (const listener of listeners) {
+    try {
+      listener(material);
+    } catch (err: any) {
+      console.error(`[content] material ${key} listener failed: ${err?.stack ?? err}`);
+    }
+  }
+}
+
+// The handle a material module's export becomes in the game (vite/materialAssetsPlugin.mjs).
+export function materialAsset(ref: MaterialRef): MaterialRef {
+  return ref;
+}
+
+// The asset a material handle has now: in the dev server, from the newest build that has it; in the release build,
+// cooked into the game. Undefined while its first build is not mounted yet.
+export function currentMaterial(ref: MaterialRef): ContentMaterial | undefined {
+  if (ref.path) return { path: ref.path, class: ref.kind === 'instance' ? 'MaterialInstanceConstant' : 'Material', kind: ref.kind, usage: [...ref.usage], params: { ...ref.params }, build: 0 };
+  return live.manifest?.materials?.[ref.key];
+}
+
+// Calls `listener` with the material asset of a material handle as soon as it is built and mounted and, in the dev
+// server, again with each new version after its module is saved. The subscription belongs to the open scene; the
+// returned function ends it earlier.
+export function onMaterial(ref: MaterialRef, listener: MaterialListener) {
+  const now = currentMaterial(ref);
+  if (ref.path) {
+    if (now) notifyMaterial(ref.key, now, [listener]);
+    return own(() => {});
+  }
+  if (!materialListeners.has(ref.key)) materialListeners.set(ref.key, new Set());
+  materialListeners.get(ref.key)!.add(listener);
+  if (now) notifyMaterial(ref.key, now, [listener]);
+  return own(() => materialListeners.get(ref.key)?.delete(listener));
 }
 
 // onAsset for the first static mesh of the asset.

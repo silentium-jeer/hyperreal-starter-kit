@@ -1,5 +1,6 @@
 import type * as UE from 'ue';
 import type { Key, ReactNode, Ref } from 'react';
+import type { MaterialValue } from '../material/types';
 
 // Shapes the generated element props (Typing/ue/ue-jsx.d.ts) are built from.
 
@@ -15,6 +16,10 @@ export type StructProp<T> = T extends UE.Vector
       : T extends UE.Vector2D
         ? T | readonly [number, number]
         : T;
+
+// An object prop takes the object or its path; a material prop also takes a material module's export or
+// instance(material, params) (shared/material, react/materials.ts).
+export type ObjectProp<T> = T | string | (T extends UE.MaterialInterface ? MaterialValue : never);
 
 interface ElementBase {
   key?: Key;

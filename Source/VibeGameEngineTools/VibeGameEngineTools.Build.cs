@@ -9,6 +9,8 @@ public class VibeGameEngineTools : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
 		PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", "DeclarationGenerator", "AssetTools", "Json", "InterchangeCore", "InterchangeEngine", "InterchangePipelines" });
+		// Materials described in TypeScript (VgeMaterialBuilder.cpp): the material editor's scripting library.
+		PrivateDependencyModuleNames.Add("MaterialEditor");
 		// Fab in the content service (VgeFab.cpp): EOS sign-in, HTTP, and BuildPatchServices' interfaces for the
 		// engine Fab plugin's BuildPatchInstallerLib, loaded through that plugin's own header-only helper.
 		PrivateDependencyModuleNames.AddRange(new string[] { "EOSSDK", "EOSShared", "HTTP", "BuildPatchServices", "Projects" });

@@ -10,6 +10,7 @@
 #include "Misc/CoreDelegates.h"
 #include "VgeFab.h"
 #include "VgeImporter.h"
+#include "VgeMaterialBuilder.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
@@ -71,6 +72,14 @@ namespace
 			{
 				Result->SetStringField(TEXT("error"), TEXT("no animation was imported; see the service log"));
 			}
+		}
+		else if (Command == TEXT("material"))
+		{
+			Result = VgeMaterialBuilder::BuildMaterial(Request);
+		}
+		else if (Command == TEXT("material-instance"))
+		{
+			Result = VgeMaterialBuilder::BuildMaterialInstance(Request);
 		}
 		else if (Command == TEXT("delete"))
 		{

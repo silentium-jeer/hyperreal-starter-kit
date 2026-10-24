@@ -1,6 +1,7 @@
 import * as UE from 'ue';
 import { $ref } from 'puerts';
 import { propsOf, type PropInfo } from './catalog';
+import { isMaterialValue, resolveMaterial } from './materials';
 
 // Writes element props onto engine objects the way Sequencer writes a property from outside
 // (FTrackInstancePropertyBindings): through the property's "Set<Name>" function when the class has one, so the
@@ -44,16 +45,18 @@ function toStruct(structName: string, value: any) {
   }
 }
 
-// A JS array as the TArray the property holds; elements convert as single props of that type would.
-function toArray(element: string, values: readonly any[]) {
+// A JS array as the TArray the property holds; elements convert as single props of that type would. A material
+// handle becomes the asset it has now (materials.ts), or nothing while it is not built yet.
+function toArray(element: string, values: readonly any[], target: UE.Object, prop: string) {
   const [category, typeName] = element.split(':');
   const elementType = category === 'object' || category === 'struct' ? (UE as any)[typeName] : (UE as any)[category];
   const array = UE.NewArray(elementType);
-  for (const value of values) {
-    if (category === 'object') array.Add(typeof value === 'string' ? loadAsset(value) : value);
+  values.forEach((value, index) => {
+    if (category === 'object' && isMaterialValue(value)) array.Add(resolveMaterial(target, `${prop}[${index}]`, value) ?? null);
+    else if (category === 'object') array.Add(typeof value === 'string' ? loadAsset(value) : value);
     else if (category === 'struct') array.Add(toStruct(typeName, value));
     else array.Add(value);
-  }
+  });
   return array;
 }
 
@@ -91,8 +94,11 @@ export function writeProp(target: any, className: string, prop: string, value: a
   }
   let converted = value;
   if (kind.startsWith('struct:')) converted = toStruct(kind.slice(7), value);
-  else if (kind === 'object' && typeof value === 'string') converted = loadAsset(value);
-  else if (kind.startsWith('array:') && Array.isArray(value)) converted = toArray(kind.slice(6), value);
+  else if (kind === 'object' && isMaterialValue(value)) {
+    converted = resolveMaterial(target, prop, value);
+    if (!converted) return false;
+  } else if (kind === 'object' && typeof value === 'string') converted = loadAsset(value);
+  else if (kind.startsWith('array:') && Array.isArray(value)) converted = toArray(kind.slice(6), value, target, prop);
   if (setter) {
     target[setter](converted);
     return false;
@@ -137,11 +143,13 @@ export function transformOf(props: Record<string, any>) {
   return UE.KismetMathLibrary.MakeTransform(toVector(props.location ?? [0, 0, 0]), toRotator(props.rotation ?? [0, 0, 0]), toVector(props.scale ?? 1));
 }
 
-// Tuples are written inline and arrive as new arrays every render; equal contents are the same value.
+// Tuples are written inline and arrive as new arrays every render, and so does instance(material, params); equal
+// contents are the same value.
+const sameItem = (a: any, b: any) => a === b || (isMaterialValue(a) && isMaterialValue(b) && JSON.stringify(a) === JSON.stringify(b));
 export function same(a: any, b: any) {
-  if (a === b) return true;
+  if (sameItem(a, b)) return true;
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-  return a.every((item, index) => item === b[index]);
+  return a.every((item, index) => sameItem(item, b[index]));
 }
 
 export const transformChanged = (a: Record<string, any>, b: Record<string, any>) =>
