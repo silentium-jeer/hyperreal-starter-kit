@@ -10,6 +10,7 @@
 #include "include/cef_client.h"
 #include "include/wrapper/cef_message_router.h"
 
+#include "FabWindow.h"
 #include "Worlds.h"
 
 // The shell window: borderless, layered with per-pixel alpha, showing one page that CEF renders off screen.
@@ -26,6 +27,10 @@
 //   {"cmd":"world.close","id":1}
 //   {"cmd":"window.minimize"} {"cmd":"window.maximize"} (toggles) {"cmd":"window.close"} {"cmd":"window.state"}
 //        -> {"maximized":false}
+//   {"cmd":"fab.open","url":"https://www.fab.com/listings/<id>"}   the Fab window (FabWindow) on a Fab page, opened
+//        if it is not; Fab pages only
+//
+// The Fab windows close with the shell; the process ends once the page and every Fab window have closed.
 class ShellWindow : public CefClient,
 					public CefRenderHandler,
 					public CefLifeSpanHandler,
@@ -42,6 +47,8 @@ public:
 		std::wstring DevServer;
 		std::wstring GameExe;
 		std::wstring LogDir;
+		// The kit's shell secret, for the Fab windows' calls to the dev server.
+		std::wstring Secret;
 		int Width = 1280;
 		int Height = 720;
 	};
@@ -100,6 +107,10 @@ private:
 
 	LRESULT HitTest(LPARAM LParam) const;
 	void MoveWorlds();
+	// The Fab window on Url (a new one when bNewWindow or none is open).
+	void OpenFab(const std::wstring& Url, bool bNewWindow);
+	// Ends the message loop once the page and every Fab window have closed.
+	void QuitWhenAllClosed();
 	static LRESULT CALLBACK WindowProc(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam);
 	static void CALLBACK OnForegroundChanged(HWINEVENTHOOK Hook, DWORD Event, HWND Window, LONG Object, LONG Child, DWORD Thread, DWORD Time);
 	LRESULT HandleMessage(UINT Message, WPARAM WParam, LPARAM LParam);
@@ -122,6 +133,8 @@ private:
 	// The page's draggable regions in CSS pixels; a region with draggable false cuts a hole in the ones before it.
 	std::vector<CefDraggableRegion> DragRegions;
 	FILE* LogFile = nullptr;
+	std::vector<CefRefPtr<FabWindow>> FabWindows;
+	bool bPageClosed = false;
 
 	// The page as last painted (device pixels, premultiplied BGRA), and an open <select> popup drawn over it.
 	std::vector<uint32_t> View;

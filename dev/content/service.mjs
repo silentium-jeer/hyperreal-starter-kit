@@ -26,10 +26,16 @@ export function createContentService({ editorCmd, project, logFile, log = consol
           clearTimeout(timer);
           log(`[service] ready in ${((Date.now() - started) / 1000).toFixed(1)} s (pid ${proc.pid})`);
           resolve();
+          // Ready after the timeout (the engine's startup waits for any other UnrealBuildTool run on the machine,
+          // TurnkeySupport's platform check): later requests are served all the same.
+          if (proc === child) readyPromise = Promise.resolve();
           return;
         }
         const waiter = pending.get(message.id);
-        if (waiter) {
+        if (waiter && message.event === 'progress') {
+          // A long request (a Fab download) reports how far it is before it answers.
+          waiter.onProgress?.(message);
+        } else if (waiter) {
           pending.delete(message.id);
           waiter.resolve(message);
         }
@@ -55,12 +61,12 @@ export function createContentService({ editorCmd, project, logFile, log = consol
     });
   }
 
-  async function call(cmd, args = {}) {
+  async function call(cmd, args = {}, { onProgress } = {}) {
     if (!child) start();
     await readyPromise;
     const id = ++nextId;
     const reply = await new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
+      pending.set(id, { resolve, reject, onProgress });
       child.stdin.write(`${JSON.stringify({ id, cmd, ...args })}\n`);
     });
     if (!reply.ok) throw new Error(`content service ${cmd} failed: ${reply.result?.error}; log: ${logFile}`);

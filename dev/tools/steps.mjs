@@ -114,6 +114,8 @@ export function buildShell(tag, root) {
     '/DUNICODE', '/D_UNICODE', '/DNOMINMAX', '/DWIN32_LEAN_AND_MEAN', '/D_WIN32_WINNT=0x0A00',
     `/I"${cef.include}"`, `/Fo"${objDir}\\\\"`, ...units.map((file) => `"${file}"`),
     '/link', `/OUT:"${join(outDir, 'HyperrealStarterKit.exe')}"`, '/SUBSYSTEM:WINDOWS', `"${cef.libcef}"`, `"${cef.wrapper}"`,
+    // The application manifest (supported OS: Windows 10), embedded: shell/src/HyperrealStarterKit.manifest says why.
+    '/MANIFEST:EMBED', `/MANIFESTINPUT:"${join(sourceDir, 'HyperrealStarterKit.manifest')}"`,
     'user32.lib', 'gdi32.lib', 'shell32.lib', 'advapi32.lib', 'ole32.lib', 'shlwapi.lib',
   ].join(' ');
   const script = join(objDir, 'build.cmd');

@@ -34,6 +34,9 @@ Releases/
 vge.config.json
 # Unreal's stock Mannequin, copied from the engine's Third Person template resources (see README)
 Content/Characters/Mannequins/
+# Plugins installed from Fab (dev/content/fab.mjs): licensed to the user. The runtime key still counts them
+# (dev/tools/runtime.mjs sourceFiles). Asset packs and model files from Fab carry a .gitignore of their own.
+Plugins/Marketplace/
 # Junctions to agents/skills, made by scripts/link-agent-skills.ts
 .claude/skills
 .codex/skills

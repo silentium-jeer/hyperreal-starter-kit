@@ -45,9 +45,11 @@ public:
 	double SecondsSinceProcessStart() const;
 
 	// Mounts a cooked content container (.pak with its .utoc/.ucas) produced by the content service
-	// and opens the shader library of the plugin it belongs to. New packages in it load right after.
+	// and opens the shader library of the plugin it belongs to, or the container's own ShaderLibrary when it names
+	// one (an asset pack's container: its library is named after the pack, dev/content/pipeline.mjs buildPack).
+	// New packages in it load right after.
 	UFUNCTION(BlueprintCallable, Category = "Vge")
-	bool MountContent(const FString& PakPath, const FString& PluginName);
+	bool MountContent(const FString& PakPath, const FString& PluginName, const FString& ShaderLibrary);
 
 private:
 	void EnterCodeBuiltWorld();

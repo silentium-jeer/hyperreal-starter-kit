@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, cpSync, createWriteStream, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, createWriteStream, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
@@ -16,11 +16,26 @@ const V8_DIR = `v8_${V8_VERSION}`;
 const V8_URL = `https://github.com/puerts/backend-v8/releases/download/V8_${V8_VERSION}__251225/v8_bin_${V8_VERSION}.tar.gz`;
 const sharedV8 = join(storeRoot, 'V8', V8_DIR);
 
+// Plugins installed from Fab (dev/content/fab.mjs) are ignored by git, being the user's under Fab's licence, but they
+// are part of what the runtime is built from: the game links their code and cooks their content.
+const MARKETPLACE = 'Plugins/Marketplace';
+const BUILD_OUTPUT = new Set(['Binaries', 'Intermediate', 'Saved', '.git']);
+
+function marketplaceFiles(dir = join(repoRoot, MARKETPLACE), prefix = MARKETPLACE) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory()) return BUILD_OUTPUT.has(entry.name) ? [] : marketplaceFiles(join(dir, entry.name), `${prefix}/${entry.name}`);
+    return [`${prefix}/${entry.name}`];
+  });
+}
+
 export function sourceFiles() {
-  return execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z', '--', ...SOURCES], { cwd: repoRoot, encoding: 'utf8' })
-    .split('\0')
-    .filter(Boolean)
-    .sort();
+  return [
+    ...execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z', '--', ...SOURCES], { cwd: repoRoot, encoding: 'utf8' })
+      .split('\0')
+      .filter(Boolean),
+    ...marketplaceFiles(),
+  ].sort();
 }
 
 function engineIdentity() {
@@ -52,6 +67,19 @@ function junction(target, link) {
 
 const V8_PARTS = ['Inc', 'Lib/Win64MD', 'Lib/Win64DLL'];
 const hasV8 = (dir) => V8_PARTS.every((part) => existsSync(join(dir, part)));
+
+// The runtime's V8 is a junction to the shared copy. A runtime folder on a volume without junctions (exFAT: the
+// store's folder linked to another drive) gets its own copy instead.
+function linkV8(tag, link) {
+  if (!isLink(link) && hasV8(link)) return;
+  try {
+    junction(sharedV8, link);
+  } catch (err) {
+    if (err.code !== 'EISDIR' && err.code !== 'EPERM') throw err;
+    for (const part of V8_PARTS) cpSync(join(sharedV8, part), join(link, part), { recursive: true });
+    console.log(`[${tag}] ${dirname(link)} cannot hold a junction; V8 copied into the runtime`);
+  }
+}
 
 async function fetchV8(tag) {
   if (hasV8(sharedV8)) return;
@@ -124,7 +152,7 @@ export async function ensureRuntime(tag, { rebuild = false } = {}) {
   rmSync(join(dir, 'runtime.json'), { force: true });
   stageSources(dir, files);
   await fetchV8(tag);
-  junction(sharedV8, join(dir, 'Plugins', 'Puerts', 'ThirdParty', V8_DIR));
+  linkV8(tag, join(dir, 'Plugins', 'Puerts', 'ThirdParty', V8_DIR));
   copyMannequin(tag, dir);
   buildTargets(tag, dir);
   typings(tag, dir);
@@ -137,8 +165,18 @@ export async function ensureRuntime(tag, { rebuild = false } = {}) {
   return dir;
 }
 
+// The binaries of plugins installed from Fab, built into the runtime like Puerts': the content service and the cooker
+// load the kit's project, and find each plugin's editor modules there.
+function marketplaceBinaries(dir) {
+  const plugins = join(dir, MARKETPLACE);
+  if (!existsSync(plugins)) return [];
+  return readdirSync(plugins)
+    .filter((name) => existsSync(join(plugins, name, 'Binaries')))
+    .map((name) => `${MARKETPLACE}/${name}/Binaries`);
+}
+
 export function linkKit(tag, dir) {
-  for (const path of LINKS) {
+  for (const path of [...LINKS, ...marketplaceBinaries(dir)]) {
     const link = join(repoRoot, path);
     if (existsSync(link) && !isLink(link)) {
       const aside = join(repoRoot, 'Saved', 'Superseded', path);

@@ -8,6 +8,7 @@
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
 #include "Misc/CoreDelegates.h"
+#include "VgeFab.h"
 #include "VgeImporter.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -109,15 +110,31 @@ int32 UVgeContentServiceCommandlet::Main(const FString& Params)
 				continue;
 			}
 			const double Started = FPlatformTime::Seconds();
+			const double Id = Request->GetNumberField(TEXT("id"));
+			auto Answer = [Id, Started](TSharedRef<FJsonObject> Result)
+			{
+				TSharedRef<FJsonObject> Reply = MakeShared<FJsonObject>();
+				Reply->SetNumberField(TEXT("id"), Id);
+				Reply->SetBoolField(TEXT("ok"), !Result->HasField(TEXT("error")));
+				Reply->SetObjectField(TEXT("result"), Result);
+				Reply->SetNumberField(TEXT("seconds"), FPlatformTime::Seconds() - Started);
+				Emit(Reply);
+			};
+			// Fab's commands answer later (a sign-in, a download), with progress events before: the loop goes on
+			// serving other requests meanwhile.
+			auto Progress = [Id](TSharedRef<FJsonObject> Event)
+			{
+				Event->SetStringField(TEXT("event"), TEXT("progress"));
+				Event->SetNumberField(TEXT("id"), Id);
+				Emit(Event);
+			};
+			if (VgeFab::Handle(Request->GetStringField(TEXT("cmd")), Request, Answer, Progress))
+			{
+				continue;
+			}
 			const TSharedRef<FJsonObject> Result = Handle(Request);
 			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
-
-			TSharedRef<FJsonObject> Reply = MakeShared<FJsonObject>();
-			Reply->SetNumberField(TEXT("id"), Request->GetNumberField(TEXT("id")));
-			Reply->SetBoolField(TEXT("ok"), !Result->HasField(TEXT("error")));
-			Reply->SetObjectField(TEXT("result"), Result);
-			Reply->SetNumberField(TEXT("seconds"), FPlatformTime::Seconds() - Started);
-			Emit(Reply);
+			Answer(Result);
 		}
 
 		if (Reader.bClosed && Reader.Lines.IsEmpty())

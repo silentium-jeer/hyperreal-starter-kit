@@ -17,6 +17,7 @@
     "profile": "node tools/profile.mjs",
     "ui": "node tools/ui.mjs",
     "fps": "node tools/fps.mjs",
+    "fab": "node tools/fab.mjs",
     "labs:previews": "node tools/lab-previews.mjs",
     "test:agent-tools": "cd .. && vitest run .claude/hooks scripts/lib",
     "clean-code:baseline": "node ../scripts/clean-code-baseline.mjs"

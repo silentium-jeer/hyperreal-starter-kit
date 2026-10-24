@@ -6,8 +6,10 @@
 //   import   - resident VgeContentService: Interchange import, Nanite on, save into the VgeLive plugin
 //   cook     - stock CookCommandlet (-dlcname=VgeLive -basedonreleaseversion=<release>) in a standby process
 //   package  - UnrealPak -CreateMultiple (.pak) and UnrealPak -CreateDLCContainer (.utoc/.ucas)
+// An asset pack added from Fab (content/fab.mjs) is cooked and packaged the same way into a container of its own
+// (buildPack below).
 import { spawn } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { engine, runtimeDir } from '../tools/engine.mjs';
 import { createStandbyCooker } from './cooker.mjs';
@@ -40,7 +42,8 @@ export function createContentPipeline({ projectDir, release = 'dev', log = conso
     for (const name of existsSync(contentDir) ? readdirSync(contentDir) : []) {
       if (name !== '.keep') rmSync(join(contentDir, name), { recursive: true, force: true });
     }
-    state = { version: STATE_VERSION, build: state?.build ?? 0, assets: {}, container: null };
+    // Asset packs live in the project's Content, not in the plugin: their containers stay valid.
+    state = { version: STATE_VERSION, build: state?.build ?? 0, assets: {}, container: null, packs: state?.packs ?? {} };
   }
   const saveState = () => writeFileSync(statePath, JSON.stringify(state, null, 2));
 
@@ -138,36 +141,104 @@ export function createContentPipeline({ projectDir, release = 'dev', log = conso
     return { key, timings, manifest: manifest() };
   }
 
-  // What a runtime needs: the newest container (it holds every built asset) and, per imported file, its objects.
+  // What a runtime needs: the newest container (it holds every built asset) and, per imported file, its objects;
+  // and the container of each asset pack.
   function manifest() {
-    if (!state.container) return null;
+    const packs = state.packs ?? {};
+    if (!state.container && !Object.keys(packs).length) return null;
     const assets = Object.fromEntries(Object.entries(state.assets).map(([key, a]) => [key, { build: a.build, objects: a.objects }]));
-    return { ...state.container, assets };
+    return { pak: null, plugin: PLUGIN, build: state.build, ...state.container, assets, packs };
+  }
+
+  // An asset pack in the project's Content/<name> (added from Fab, dev/content/fab.mjs): its packages keep their
+  // /Game/<name>/ paths, which their references to each other use. It is cooked as DLC against the base release like
+  // live content, with its folder given to the cook (-COOKDIR, CollectFilesToCook), into a container of its own that
+  // holds only the pack's packages, so a model edit never re-cooks gigabytes of pack. The shader library the cook
+  // writes under the DLC's name is renamed after the pack: an IoStore library is found by its name
+  // (FIoStoreShaderCodeArchive::Create), so each pack's library is its own and MountContent opens it by that name.
+  async function buildPack(name) {
+    const packDir = resolve(projectDir, 'Content', name);
+    if (!existsSync(packDir)) throw new Error(`no asset pack at ${packDir}`);
+    const buildId = ++state.build;
+    const tag = `b${String(buildId).padStart(4, '0')}`;
+    const logs = join(workDir, `${tag}-${name}`);
+    mkdirSync(logs, { recursive: true });
+    const t0 = Date.now();
+    const timings = {};
+
+    rmSync(cookedRoot, { recursive: true, force: true });
+    const cooked = await cooker.cook({ args: [`-COOKDIR="${packDir}"`], scan: [`/Game/${name}/`] });
+    copyFileSync(cooked.logFile, join(logs, 'cook.log'));
+    timings.cook = cooked.seconds;
+
+    // A DLC cook writes the project's packages under the project's name, beside the plugin's.
+    const cookedPack = join(cookedRoot, 'VibeGameEngine', 'Content', name);
+    const packaged = listFiles(cookedPack).filter((f) => CONTAINER_FILES.test(f));
+    if (!packaged.length) throw new Error(`the cook wrote nothing for /Game/${name}; log: ${join(logs, 'cook.log')}`);
+    const shaderLibrary = `VgePack${name.replace(/[^A-Za-z0-9]/g, '')}${tag}`;
+    let library = null;
+    for (const file of listFiles(join(cookedPlugin, 'Content'))) {
+      const base = file.replace(/^.*[\\/]/, '');
+      const renamed = base.replace(`-${PLUGIN}-`, `-${shaderLibrary}-`);
+      if (renamed === base || !/^(ShaderArchive|ShaderAssetInfo)-/.test(base)) continue;
+      renameSync(file, join(cookedPlugin, 'Content', renamed));
+      if (renamed.endsWith('.ushaderbytecode')) library = join(cookedPlugin, 'Content', renamed);
+    }
+
+    const container = `Pack${name.replace(/[^A-Za-z0-9]/g, '')}-${tag}`;
+    const pak = join(outDir, `${container}.pak`);
+    const crypto = join(cookedPlugin, 'Metadata', 'Crypto.json');
+    copyFileSync(join(runtimeDir(), 'Saved', 'Cooked', 'Windows', 'VibeGameEngine', 'Metadata', 'Crypto.json'), crypto);
+    const manifestFile = join(cookedPlugin, 'Metadata', 'packagestore.manifest');
+    // The .pak itself carries only a note of what the container is; the packages go into its IoStore container.
+    const note = join(logs, 'pack.json');
+    writeFileSync(note, JSON.stringify({ pack: name, build: buildId, shaderLibrary: library ? shaderLibrary : '' }, null, 2));
+    const projectMount = (file) => `../../../VibeGameEngine/${relative(join(cookedRoot, 'VibeGameEngine'), file).replaceAll('\\', '/')}`;
+    const ioStoreFiles = [...packaged.map((f) => `"${f}" "${projectMount(f)}" -compress`)];
+    if (library) ioStoreFiles.push(`"${library}" "${mountPath(library)}"`);
+    writeFileSync(join(logs, 'PakList.txt'), `"${note}" "../../../VibeGameEngine/Plugins/${PLUGIN}/Packs/${name}/pack.json" -compress`);
+    writeFileSync(join(logs, 'PakListIoStore.txt'), ioStoreFiles.join('\n'));
+    writeFileSync(join(logs, 'PakCommands.txt'), `"${pak}" -create="${join(logs, 'PakList.txt')}"`);
+    writeFileSync(join(logs, 'IoStoreCommands.txt'), `-Output="${join(outDir, `${container}.utoc`)}" -ContainerName=${container} -ResponseFile="${join(logs, 'PakListIoStore.txt')}"`);
+    const compression = ['-patchpaddingalign=2048', '-compressionformats=Oodle', '-compresslevel=4', '-compressmethod=Kraken'];
+    timings.pak = await run('pak', UNREAL_PAK, [project, `-cryptokeys=${crypto}`, '-unattended', ...compression, '-platform=Windows', `-CreateMultiple=${join(logs, 'PakCommands.txt')}`], join(logs, 'pak.log'));
+    timings.iostore = await run('iostore', UNREAL_PAK, [project, project, `-CreateDLCContainer=${join(pluginDir, `${PLUGIN}.uplugin`)}`, `-PackageStoreManifest=${manifestFile}`, `-ScriptObjects=${join(cookedPlugin, 'Metadata', 'scriptobjects.bin')}`, `-CookedDirectory=${cookedRoot}`, `-Commands=${join(logs, 'IoStoreCommands.txt')}`, ...compression, `-cryptokeys=${crypto}`, '-compressionMinBytesSaved=1024', '-compressionMinPercentSaved=5', '-WriteBackMetadataToAssetRegistry=Disabled', '-platform=Windows', `-BasedOnReleaseVersionPath=${resolve(projectDir, 'Releases', release, 'Windows')}`, '-unattended'], join(logs, 'iostore.log'));
+
+    state.packs = { ...state.packs, [name]: { name, pak: pak.replaceAll('\\', '/'), shaderLibrary: library ? shaderLibrary : '', build: buildId, packages: packaged.length } };
+    saveState();
+    timings.total = (Date.now() - t0) / 1000;
+    log(`[content] pack ${name} -> ${container} (${packaged.length} files) in ${timings.total.toFixed(1)} s ${JSON.stringify(timings)}`);
+    return { name, timings, manifest: manifest() };
   }
 
   // One build at a time; a file saved again while building is rebuilt once afterwards.
   let queue = Promise.resolve();
   const pending = new Set();
-  function enqueue(sourcePath, key, onDone) {
-    if (pending.has(key)) return;
-    pending.add(key);
+  function schedule(id, work, onDone) {
+    if (pending.has(id)) return;
+    pending.add(id);
     queue = queue.then(async () => {
-      pending.delete(key);
+      pending.delete(id);
       try {
-        onDone(null, await build(sourcePath, key));
+        onDone(null, await work());
       } catch (err) {
         onDone(err);
       }
     });
   }
+  const enqueue = (sourcePath, key, onDone) => schedule(key, () => build(sourcePath, key), onDone);
+  const enqueuePack = (name, onDone) => schedule(`pack:${name}`, () => buildPack(name), onDone);
 
   // True when the file has no build yet or changed since its last one.
   const isStale = (sourcePath, key) => state.assets[key]?.sourceMtimeMs !== statSync(sourcePath).mtimeMs;
 
   return {
     enqueue,
+    enqueuePack,
     isStale,
     manifest,
+    // The resident content service, for other work that runs in it (dev/content/fab.mjs).
+    service,
     startService: () => {
       service.start();
       cooker.ensure();

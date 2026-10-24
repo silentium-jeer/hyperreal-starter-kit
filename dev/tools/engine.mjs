@@ -6,8 +6,9 @@
 //   4. the registry keys the launcher and source builds write (HKLM ...\EpicGames\Unreal Engine\5.8,
 //      HKCU ...\Epic Games\Unreal Engine\Builds)
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 export const ENGINE_VERSION = { major: 5, minor: 8 };
 export const repoRoot = resolve(import.meta.dirname, '../..');
@@ -95,6 +96,18 @@ export function savePorts(value) {
 }
 
 export const devServerUrl = () => `http://127.0.0.1:${ports().dev}`;
+
+// What this kit's shell sends with its own requests to the dev server (X-Vge-Shell): the Fab window's calls go out from
+// a browser, with an Origin like any web page's, and the dev server refuses web pages (server.mjs fromAPage). Made once
+// per checkout in Saved, where no web page can read it; tools/shell.mjs hands it to the shell.
+export function shellSecret() {
+  const file = join(repoRoot, 'Saved', 'shell-secret');
+  if (!existsSync(file)) {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, randomBytes(32).toString('hex'));
+  }
+  return readFileSync(file, 'utf8').trim();
+}
 
 export function runtimeDir() {
   const dir = linkedRuntime();
