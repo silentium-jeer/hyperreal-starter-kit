@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Embedded into HyperrealStarterKit.exe (dev/tools/steps.mjs buildShell). Without it Windows reports itself to the
+     process as Windows 8 (GetVersionEx: NT 6.2.9200, chrome://gpu "Operating system"), and the Chromium in CEF, which
+     supports Windows 10 and later only, takes its GPU process down as soon as a windowed browser (a Fab window)
+     presents to a window. The ID is Windows 10's (and 11's). -->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+</assembly>

@@ -1,0 +1,18 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Vge Hello Plugin",
+	"Description": "A minimal code plugin laid out as a Fab download (descriptor and sources, no binaries): the sample the kit's plugin install is checked with (npm run fab -- plugin).",
+	"Category": "Samples",
+	"CreatedBy": "Vibe Game Engine",
+	"CanContainContent": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "VgeHelloPlugin",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

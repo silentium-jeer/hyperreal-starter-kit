@@ -11,6 +11,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/Parse.h"
+#include "Misc/Paths.h"
 #include "AI/NavigationSystemBase.h"
 #include "VgeUI.h"
 #include "ShaderCodeLibrary.h"
@@ -100,7 +101,7 @@ void UVgeGameInstance::Shutdown()
 	Super::Shutdown();
 }
 
-bool UVgeGameInstance::MountContent(const FString& PakPath, const FString& PluginName)
+bool UVgeGameInstance::MountContent(const FString& PakPath, const FString& PluginName, const FString& ShaderLibrary)
 {
 	if (!FCoreDelegates::MountPak.IsBound())
 	{
@@ -117,11 +118,21 @@ bool UVgeGameInstance::MountContent(const FString& PakPath, const FString& Plugi
 		return false;
 	}
 
-	// The plugin was mounted at startup before this container existed, so its shader library was not found then.
-	TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
-	if (Plugin.IsValid())
+	if (!ShaderLibrary.IsEmpty())
 	{
-		FShaderCodeLibrary::OpenLibrary(Plugin->GetName(), Plugin->GetContentDir(), /*bMonolithicOnly*/ true);
+		// A library in an IoStore container is found by its name (FIoStoreShaderCodeArchive::Create looks up the
+		// chunk named after the library and the shader format); the directory only tells libraries apart by path.
+		const bool bOpened = FShaderCodeLibrary::OpenLibrary(ShaderLibrary, FPaths::ProjectContentDir(), /*bMonolithicOnly*/ true);
+		UE_LOGF(LogVge, Display, "MountContent: shader library %ls %ls", *ShaderLibrary, bOpened ? TEXT("opened") : TEXT("not found"));
+	}
+	else
+	{
+		// The plugin was mounted at startup before this container existed, so its shader library was not found then.
+		TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
+		if (Plugin.IsValid())
+		{
+			FShaderCodeLibrary::OpenLibrary(Plugin->GetName(), Plugin->GetContentDir(), /*bMonolithicOnly*/ true);
+		}
 	}
 	UE_LOGF(LogVge, Display, "MountContent: mounted %ls at %ls (plugin %ls)", *PakPath, *Pak->PakGetMountPoint(), *PluginName);
 	return true;

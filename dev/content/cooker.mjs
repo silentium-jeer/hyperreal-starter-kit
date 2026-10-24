@@ -48,13 +48,15 @@ export function createStandbyCooker({ editorCmd, project, cookArgs, logDir, log 
     return standby;
   }
 
-  // Runs one cook in the standby process. Returns { seconds, warmup, logFile }.
-  async function cook() {
+  // Runs one cook in the standby process: `args` are added to its cook arguments (an asset pack's -COOKDIR=), `scan`
+  // are content paths created after the process started that the cook must see (VgeCook rescans them).
+  // Returns { seconds, warmup, logFile }.
+  async function cook({ args = [], scan = [] } = {}) {
     const current = ensure();
     standby = undefined;
     const warmup = await current.ready;
     const started = Date.now();
-    current.child.stdin.write('cook\n');
+    current.child.stdin.write(`${JSON.stringify({ args, scan })}\n`);
     const done = await current.waitFor('done');
     await current.exited;
     ensure();

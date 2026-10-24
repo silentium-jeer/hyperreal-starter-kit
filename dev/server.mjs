@@ -9,8 +9,9 @@ import { makeIdFiltersToMatchWithQuery } from '@rolldown/pluginutils';
 import { DevEnvironment, createServer, transformWithOxc } from 'vite';
 import { reactRefreshWrapperPlugin } from 'vite/internal';
 import { WebSocketServer } from 'ws';
+import { createFab } from './content/fab.mjs';
 import { createContentPipeline } from './content/pipeline.mjs';
-import { ports, runtimeDir } from './tools/engine.mjs';
+import { ports, runtimeDir, shellSecret } from './tools/engine.mjs';
 import { registerRuntimeUse, trackProcess } from './tools/processes.mjs';
 import { contentAssetsPlugin } from './vite/contentAssetsPlugin.mjs';
 import { devLeanTransportPlugin } from './vite/devLeanTransportPlugin.ts';
@@ -169,6 +170,101 @@ function evalPlugin() {
   };
 }
 
+// The Fab window's calls (shell/src/FabWindow.cpp -> content/fab.mjs), refused to web pages (fromAPage) other than
+// the kit's shell, which goes out with an Origin as a browser does and proves itself with X-Vge-Shell (shellSecret):
+//   POST /__vge/fab           {"method":"addtoproject","args":[...]} -> one JSON object per line as the call goes:
+//                             {"progress":{"stage":"downloading","percent":42}} ..., then {"result":...} or {"error":"..."}
+//   POST /__vge/fab/open      {"url":"https://www.fab.com/listings/<id>"}: the shell page opens the Fab window on it
+//                             (ui/shell/fab.ts); answers how many pages heard it
+//   GET  /__vge/fab/installs  every install from the Fab window, with its state and where it landed (tools/fab.mjs)
+//   POST /__vge/fab/pack      {"name":"<Pack>","from":"<folder holding Content/<Pack>>"}: a pack already on disk (the
+//                             launcher's VaultCache download) into Content/<Pack> and its container, as Add to Project
+//   POST /__vge/fab/plugin    {"from":"<folder holding <Name>.uplugin>"}: a plugin already on disk into
+//                             Plugins/Marketplace/<Name> and the runtime, as Install Plugin after its download
+// Its middleware goes ahead of the lean transport's, which holds a response back until it ends.
+function fabPlugin() {
+  return {
+    name: 'vge:fab',
+    configureServer(server) {
+      const unreal = () => server.environments.unreal.hot;
+      const fab = createFab({
+        projectDir: resolve(process.cwd(), '..'),
+        devDir: process.cwd(),
+        pipeline,
+        broadcast: (manifest) => unreal().send('vge:content', manifest),
+        // The shell page's notices (ui/shell/FabNotices.tsx) follow each install.
+        notify: (entry) => server.ws.send({ type: 'custom', event: 'vge:fab-install', data: entry }),
+      });
+      const readJson = (req) =>
+        new Promise((resolvePromise) => {
+          let body = '';
+          req.on('data', (chunk) => (body += chunk));
+          req.on('end', () => resolvePromise(JSON.parse(body || '{}')));
+        });
+      const secret = shellSecret();
+      server.middlewares.use('/__vge/fab', async (req, res) => {
+        if (fromAPage(req) && req.headers['x-vge-shell'] !== secret) {
+          res.statusCode = 403;
+          res.end();
+          return;
+        }
+        const path = new URL(req.url, 'http://localhost').pathname;
+        if (req.method === 'GET' && path === '/installs') {
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(fab.installs(), null, 2));
+          return;
+        }
+        if (req.method === 'POST' && path === '/open') {
+          const { url } = await readJson(req);
+          server.ws.send({ type: 'custom', event: 'vge:fab-open', data: { url } });
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify({ pages: server.ws.clients.size }));
+          return;
+        }
+        if (req.method === 'POST' && path === '/plugin') {
+          // Answered at once: the runtime build takes half an hour; /installs follows it (id `plugin:<Name>`).
+          const { from } = await readJson(req);
+          res.setHeader('content-type', 'application/json');
+          try {
+            fab.addPlugin(from).catch(() => {});
+            res.end(JSON.stringify({ started: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+        if (req.method === 'POST' && path === '/pack') {
+          const { name, from } = await readJson(req);
+          res.setHeader('content-type', 'application/json');
+          try {
+            res.end(JSON.stringify(await fab.addPack(name, from)));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
+          return;
+        }
+        if (req.method !== 'POST' || path !== '/') {
+          res.statusCode = 404;
+          res.end();
+          return;
+        }
+        const { method, args = [] } = await readJson(req);
+        res.setHeader('content-type', 'application/x-ndjson');
+        res.setHeader('content-encoding', 'identity');
+        const line = (value) => res.write(`${JSON.stringify(value)}\n`);
+        try {
+          line({ result: (await fab.call(method, args, (progress) => line({ progress }))) ?? null });
+        } catch (err) {
+          line({ error: err.message });
+        }
+        res.end();
+      });
+    },
+  };
+}
+
 // React Fast Refresh for the game code, the browser's own: @vitejs/plugin-react gives it to the `client`
 // environment only, and Vite's oxc plugin turns JSX refresh off for any `server` consumer (vite:oxc,
 // getModifiedOxcTransformOptions). The same oxc transform with refresh, and the same refresh wrapper
@@ -204,7 +300,7 @@ const server = await createServer({
   logLevel: 'info',
   // The shell's inspection surfaces (the web-starter-kit's lab index and UI-kit gallery) exist in dev only.
   define: { __SHOWCASE_SURFACES__: 'true' },
-  plugins: [devLeanTransportPlugin({ compress: true, stripSourcemaps: true }), react(), unrealReactRefresh(), uiKitClientPlugins(), contentPlugins(), evalPlugin()],
+  plugins: [fabPlugin(), devLeanTransportPlugin({ compress: true, stripSourcemaps: true }), react(), unrealReactRefresh(), uiKitClientPlugins(), contentPlugins(), evalPlugin()],
   server: {
     host: '127.0.0.1',
     port: PORT,

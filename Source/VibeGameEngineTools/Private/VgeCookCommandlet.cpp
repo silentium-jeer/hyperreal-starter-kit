@@ -2,6 +2,8 @@
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Misc/Parse.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "UObject/Package.h"
 #include "UObject/UObjectGlobals.h"
 
@@ -28,20 +30,37 @@ int32 UVgeCookCommandlet::Main(const FString& Params)
 		return 0;
 	}
 
+	// The request: {"args":["-COOKDIR=..."],"scan":["/Game/Pack/"]} (dev/content/cooker.mjs), extra cook arguments
+	// and content paths created after this process started.
+	FString CookParams = Params;
+	TArray<FString> ScanPaths;
+	TSharedPtr<FJsonObject> Request;
+	if (FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(UTF8_TO_TCHAR(Line.c_str())), Request) && Request.IsValid())
+	{
+		TArray<FString> ExtraArgs;
+		Request->TryGetStringArrayField(TEXT("args"), ExtraArgs);
+		for (const FString& Arg : ExtraArgs)
+		{
+			CookParams += TEXT(" ") + Arg;
+		}
+		Request->TryGetStringArrayField(TEXT("scan"), ScanPaths);
+	}
+
 	// The DLC cook lists its packages from disk (UAssetManager::ModifyDLCCook) but checks each one in the asset
 	// registry, so content imported after this process started must be rescanned before the cook reads it.
 	FString DlcName;
 	if (FParse::Value(*Params, TEXT("dlcname="), DlcName))
 	{
-		AssetRegistry.ScanPathsSynchronous({ FString::Printf(TEXT("/%s/"), *DlcName) }, /*bForceRescan*/ true);
+		ScanPaths.Add(FString::Printf(TEXT("/%s/"), *DlcName));
 	}
+	AssetRegistry.ScanPathsSynchronous(ScanPaths, /*bForceRescan*/ true);
 
 	// UCookCommandlet is not exported from UnrealEd; reach it through reflection and its virtual Main.
 	UClass* CookClass = FindObject<UClass>(nullptr, TEXT("/Script/UnrealEd.CookCommandlet"));
 	check(CookClass);
 	UCommandlet* Cook = NewObject<UCommandlet>(GetTransientPackage(), CookClass);
 	Cook->AddToRoot();
-	const int32 Result = Cook->Main(Params);
+	const int32 Result = Cook->Main(CookParams);
 	Cook->RemoveFromRoot();
 
 	std::printf("@@vge {\"event\":\"done\",\"code\":%d}\n", Result);

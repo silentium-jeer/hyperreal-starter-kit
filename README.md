@@ -213,6 +213,8 @@ physics. What changes is where it gets its instructions.
 | `npm run labs:previews [<id>...]` | captures each lab's preview for the shell's lab index: a rendered 1600×900 game window per lab, `HighResShot`, written as `dev/ui/app/ui/labs/previews/<id>.webp` |
 | `npm run build:cpp` | after a C++ change: builds the shared runtime for the new sources (C++ targets, typings, base game, shell) and links the kit to it |
 | `npm run profile -- create <name> \| list \| remove <name>` | a profile: a second checkout on its own branch with its own ports and runtime link, to build and test a feature beside the main kit (below) |
+| `npm run fab -- search "<words>" [--free] [--format unreal-engine\|gltf\|fbx]` | Fab's own search, run in the shell's Fab window: each listing with its link, formats and price ([Fab](#fab-assets-into-the-project)) |
+| `npm run fab -- open <listing link or id>` \| `installs` | shows the user a listing in the shell's Fab window; lists what was added from it and where it landed |
 | `npm run stop [-- game\|dev\|shell]` | stops this kit's own processes, and only those |
 | `npm run typecheck` | `tsc` over game and UI code against the generated typings |
 | `VibeGameEngine.exe -Scene=labs/<id> [-nullrhi]` | an isolated process for one lab, sharing the dev server and content service |
@@ -262,6 +264,36 @@ Typings and type checking:
 ```bash
 cd dev && npm run typings && npm run typecheck
 ```
+
+### Fab: assets into the project
+
+The shell has a Fab window: the Fab website the way the engine's Fab plugin shows it inside the editor
+(`https://www.fab.com/plugins/ue5`, `Engine/Plugins/Fab`), in a native window beside the shell, with the
+plugin's JavaScript API (`window.ue.fab`, `UFabBrowserApi`) given to the page by the shell
+(`shell/src/FabWindow.cpp`, `FabBridge.h`). So its listings show the plugin's buttons, Add to Project and Install
+Plugin, and pressing one does here what the plugin does in the editor (`dev/content/fab.mjs`):
+
+- Sign-in: the content service signs in with the plugin's EOS product (`VgeFab.cpp`, as `FabAuthentication.cpp`):
+  from the persistent sign-in EOS keeps when there is one, otherwise the user signs in once through the Epic
+  account portal the page's Sign in button opens.
+- An Unreal Engine asset pack: its build (BuildPatchServices manifest and chunks, downloaded by the plugin's own
+  `BuildPatchInstallerLib`) lands in the project's `Content/<Pack>` (as `PackImportWorkflow`), then the content
+  pipeline cooks it as DLC into a container of its own (`pipeline.mjs` `buildPack`), which every running game mounts
+  (`MountContent`); the game code loads it by path, `/Game/<Pack>/...` (`onPack` in `shared/engine/content.ts`).
+- A glTF, GLB or FBX download (Quixel included): unpacked into `dev/src/shared/assets/fab/<Name>` and built like any
+  model file; the game code imports it by its path.
+- A plugin (Install Plugin): its build lands in `Plugins/Marketplace/<Name>` (as `PluginInstallWorkflow`), and the
+  runtime is built again for the kit's sources with it (`npm run build:cpp`, run by the dev server; restart the dev
+  server afterwards): the game is monolithic, so a plugin's code is linked into it.
+- A pack or a plugin already on disk goes the same way from the step after its download: `npm run fab -- pack <Pack>
+  --from <folder with Content/<Pack>>` (the launcher's VaultCache download), `npm run fab -- plugin <folder with
+  <Name>.uplugin>`; `dev/content/samples/VgeHelloPlugin` is a code plugin laid out as a Fab download, which a game on
+  the rebuilt runtime calls as `UE.VgeHelloPlugin.Hello('kit')`.
+
+What comes from Fab is licensed to the user, not to the repository: `Plugins/Marketplace` is ignored by git, and a
+pack's or a model's folder gets its own `.gitignore`. The Fab window shows only Fab's own pages; sign-in and payment
+pages it passes through never get `window.ue.fab`. Buying and signing in are the user's: an agent finds a listing
+with `npm run fab -- search`, shows it with `npm run fab -- open <link>`, and the user presses the button.
 
 ## Build and package (headless, no editor UI)
 

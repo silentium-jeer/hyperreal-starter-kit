@@ -25,18 +25,35 @@ export interface ContentAsset {
   animations: string[];
   objects: ContentObject[];
 }
-interface Manifest {
+// An asset pack added from Fab (dev/content/fab.mjs): its own content under /Game/<name>/, cooked into a container
+// of its own with its own shader library.
+export interface ContentPack {
+  name: string;
   pak: string;
+  shaderLibrary: string;
+  build: number;
+}
+interface Manifest {
+  pak: string | null;
   plugin: string;
   build: number;
   assets: Record<string, { build: number; objects: ContentObject[] }>;
+  packs: Record<string, ContentPack>;
 }
 type AssetListener = (asset: ContentAsset) => void;
+type PackListener = (pack: ContentPack) => void;
 
-declare const __vge: { content?: { mounted: Set<string>; manifest: Manifest | null; listeners: Map<string, Set<AssetListener>> } };
+interface LiveContent {
+  mounted: Set<string>;
+  manifest: Manifest | null;
+  listeners: Map<string, Set<AssetListener>>;
+  packListeners?: Map<string, Set<PackListener>>;
+}
+declare const __vge: { content?: LiveContent };
 
 // Lives on the bootstrap global: mounted containers and subscribers survive re-evaluation of this module.
-const live = (__vge.content ??= { mounted: new Set(), manifest: null, listeners: new Map() });
+const live: LiveContent = (__vge.content ??= { mounted: new Set(), manifest: null, listeners: new Map() });
+const packListeners = (live.packListeners ??= new Map());
 
 export function contentAsset(key: string, objects?: ContentObject[]): ContentAssetRef {
   return { key, objects };
@@ -77,20 +94,32 @@ function notify(key: string, asset: ContentAsset, listeners: Iterable<AssetListe
 function apply(manifest: Manifest | null) {
   try {
     if (!manifest) return;
-    if (!live.mounted.has(manifest.pak)) {
-      if (!gameInstance.MountContent(manifest.pak, manifest.plugin)) {
+    if (manifest.pak && !live.mounted.has(manifest.pak)) {
+      if (!gameInstance.MountContent(manifest.pak, manifest.plugin, '')) {
         console.error(`[content] could not mount ${manifest.pak}`);
         return;
       }
       live.mounted.add(manifest.pak);
     }
     const previous = live.manifest;
+    for (const pack of Object.values(manifest.packs ?? {})) {
+      if (live.mounted.has(pack.pak)) continue;
+      if (!gameInstance.MountContent(pack.pak, manifest.plugin, pack.shaderLibrary)) {
+        console.error(`[content] could not mount pack ${pack.name} (${pack.pak})`);
+        continue;
+      }
+      live.mounted.add(pack.pak);
+    }
     live.manifest = manifest;
     for (const [key, listeners] of live.listeners) {
       const entry = manifest.assets[key];
       if (entry && previous?.assets[key]?.build !== entry.build) notify(key, describe(entry.build, entry.objects), listeners);
     }
-    console.log(`[content] build ${manifest.build} mounted, assets: ${Object.keys(manifest.assets).join(', ')}`);
+    for (const [name, listeners] of packListeners) {
+      const pack = manifest.packs?.[name];
+      if (pack && previous?.packs?.[name]?.build !== pack.build) notifyPack(pack, listeners);
+    }
+    console.log(`[content] build ${manifest.build} mounted, assets: ${Object.keys(manifest.assets).join(', ')}; packs: ${Object.keys(manifest.packs ?? {}).join(', ')}`);
   } catch (err: any) {
     console.error(`[content] applying build ${manifest?.build} failed: ${err?.stack ?? err}`);
   }
@@ -109,6 +138,27 @@ export function onAsset(ref: ContentAssetRef, listener: AssetListener) {
   const entry = live.manifest?.assets[ref.key];
   if (entry) notify(ref.key, describe(entry.build, entry.objects), [listener]);
   return own(() => live.listeners.get(ref.key)?.delete(listener));
+}
+
+function notifyPack(pack: ContentPack, listeners: Iterable<PackListener>) {
+  for (const listener of listeners) {
+    try {
+      listener(pack);
+    } catch (err: any) {
+      console.error(`[content] pack ${pack.name} listener failed: ${err?.stack ?? err}`);
+    }
+  }
+}
+
+// Calls `listener` once the asset pack `name` (Content/<name>, added from Fab) is mounted, and again after each
+// rebuild of it; its objects then load by path: loadContent(`/Game/${name}/Meshes/SM_Rock.SM_Rock`). The
+// subscription belongs to the open scene; the returned function ends it earlier.
+export function onPack(name: string, listener: PackListener) {
+  if (!packListeners.has(name)) packListeners.set(name, new Set());
+  packListeners.get(name)!.add(listener);
+  const pack = live.manifest?.packs?.[name];
+  if (pack) notifyPack(pack, [listener]);
+  return own(() => packListeners.get(name)?.delete(listener));
 }
 
 // onAsset for the first static mesh of the asset.

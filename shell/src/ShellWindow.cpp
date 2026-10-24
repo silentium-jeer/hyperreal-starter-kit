@@ -12,6 +12,8 @@
 #include "include/cef_parser.h"
 #include "include/wrapper/cef_helpers.h"
 
+#include "FabBridge.h"
+
 namespace
 {
 	constexpr wchar_t WindowClassName[] = L"HyperrealStarterKitShell";
@@ -358,6 +360,10 @@ LRESULT ShellWindow::HandleMessage(UINT Message, WPARAM WParam, LPARAM LParam)
 	case WM_CLOSE:
 		Running->CloseAll();
 		PageWorlds.clear();
+		for (const CefRefPtr<FabWindow>& Fab : std::vector<CefRefPtr<FabWindow>>(FabWindows))
+		{
+			Fab->Close();
+		}
 		if (Browser)
 		{
 			// The window goes away once the browser has closed (OnBeforeClose).
@@ -599,7 +605,40 @@ void ShellWindow::OnBeforeClose(CefRefPtr<CefBrowser> InBrowser)
 	Router->OnBeforeClose(InBrowser);
 	Browser = nullptr;
 	DestroyWindow(Window);
-	CefQuitMessageLoop();
+	bPageClosed = true;
+	QuitWhenAllClosed();
+}
+
+void ShellWindow::QuitWhenAllClosed()
+{
+	if (bPageClosed && FabWindows.empty())
+	{
+		CefQuitMessageLoop();
+	}
+}
+
+void ShellWindow::OpenFab(const std::wstring& Url, bool bNewWindow)
+{
+	if (!bNewWindow && !FabWindows.empty())
+	{
+		FabWindows.front()->Open(Url);
+		return;
+	}
+	FabWindow::Options FabOptions;
+	// http://127.0.0.1:5173/ -> http://127.0.0.1:5173
+	FabOptions.DevServer = Settings.Url.substr(0, Settings.Url.find(L'/', Settings.Url.find(L"//") + 2));
+	FabOptions.Secret = Settings.Secret;
+	FabOptions.Owner = Window;
+	FabOptions.Log = [this](const std::wstring& Line) { Log(L"%s", Line.c_str()); };
+	FabOptions.OpenInNew = [this](const std::wstring& NewUrl) { OpenFab(NewUrl, true); };
+	FabOptions.OnClosed = [this](FabWindow* Closed)
+	{
+		std::erase_if(FabWindows, [Closed](const CefRefPtr<FabWindow>& Each) { return Each.get() == Closed; });
+		QuitWhenAllClosed();
+	};
+	CefRefPtr<FabWindow> Fab = new FabWindow(FabOptions);
+	FabWindows.push_back(Fab);
+	Fab->Open(Url);
 }
 
 bool ShellWindow::OnCursorChange(CefRefPtr<CefBrowser>, CefCursorHandle InCursor, cef_cursor_type_t, const CefCursorInfo&)
@@ -786,6 +825,19 @@ bool ShellWindow::OnQuery(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>, int64_t Qu
 	{
 		Callback->Success("{}");
 		PostMessageW(Window, WM_CLOSE, 0, 0);
+	}
+	else if (Command == "fab.open")
+	{
+		const std::string Url = Body->HasKey("url") ? Body->GetString("url").ToString() : CefString(FabWindow::HomeUrl).ToString();
+		// The Fab window gives its page the Fab plugin's API (sign-in, installs): it shows Fab's own pages only.
+		if (!IsFabPage(Url))
+		{
+			Callback->Failure(5, "fab.open takes a page of https://www.fab.com");
+			return true;
+		}
+		OpenFab(CefString(Url).ToWString(), false);
+		Log(L"[fab] open %s", CefString(Url).ToWString().c_str());
+		Callback->Success("{}");
 	}
 	else
 	{

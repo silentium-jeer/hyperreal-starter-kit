@@ -17,11 +17,26 @@ const V8_DIR = `v8_${V8_VERSION}`;
 const V8_URL = `https://github.com/puerts/backend-v8/releases/download/V8_${V8_VERSION}__251225/v8_bin_${V8_VERSION}.tar.gz`;
 const sharedV8 = join(storeRoot, 'V8', V8_DIR);
 
+// Plugins installed from Fab (dev/content/fab.mjs) are ignored by git, being the user's under Fab's licence, but they
+// are part of what the runtime is built from: the game links their code and cooks their content.
+const MARKETPLACE = 'Plugins/Marketplace';
+const BUILD_OUTPUT = new Set(['Binaries', 'Intermediate', 'Saved', '.git']);
+
+function marketplaceFiles(dir = join(repoRoot, MARKETPLACE), prefix = MARKETPLACE) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.isDirectory()) return BUILD_OUTPUT.has(entry.name) ? [] : marketplaceFiles(join(dir, entry.name), `${prefix}/${entry.name}`);
+    return [`${prefix}/${entry.name}`];
+  });
+}
+
 export function sourceFiles() {
-  return execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z', '--', ...SOURCES], { cwd: repoRoot, encoding: 'utf8' })
-    .split('\0')
-    .filter(Boolean)
-    .sort();
+  return [
+    ...execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z', '--', ...SOURCES], { cwd: repoRoot, encoding: 'utf8' })
+      .split('\0')
+      .filter(Boolean),
+    ...marketplaceFiles(),
+  ].sort();
 }
 
 function engineIdentity() {
@@ -218,8 +233,18 @@ export function pruneRuntimes(tag) {
   }
 }
 
+// The binaries of plugins installed from Fab, built into the runtime like Puerts': the content service and the cooker
+// load the kit's project, and find each plugin's editor modules there.
+function marketplaceBinaries(dir) {
+  const plugins = join(dir, MARKETPLACE);
+  if (!existsSync(plugins)) return [];
+  return readdirSync(plugins)
+    .filter((name) => existsSync(join(plugins, name, 'Binaries')))
+    .map((name) => `${MARKETPLACE}/${name}/Binaries`);
+}
+
 export function linkKit(tag, dir) {
-  for (const path of LINKS) {
+  for (const path of [...LINKS, ...marketplaceBinaries(dir)]) {
     const link = join(repoRoot, path);
     if (existsSync(link) && !isLink(link)) {
       const aside = join(repoRoot, 'Saved', 'Superseded', path);
