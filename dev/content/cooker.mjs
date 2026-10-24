@@ -54,14 +54,18 @@ export function createStandbyCooker({ editorCmd, project, cookArgs, logDir, log 
   async function cook({ args = [], scan = [] } = {}) {
     const current = ensure();
     standby = undefined;
+    const asked = Date.now();
     const warmup = await current.ready;
     const started = Date.now();
+    // Time this cook waited for its process to finish starting (a build right after another one).
+    const waited = (started - asked) / 1000;
     current.child.stdin.write(`${JSON.stringify({ args, scan })}\n`);
     const done = await current.waitFor('done');
-    await current.exited;
-    ensure();
+    // 'done' comes after the cook has written everything (VgeCookCommandlet.cpp); the process takes another ~0.6 s to
+    // shut down its shader workers and exit, which the build does not wait for. The next standby starts once it is gone.
+    current.exited.then(() => ensure());
     if (done.code !== 0) throw new Error(`cook failed with code ${done.code}; log: ${current.logFile}`);
-    return { seconds: (Date.now() - started) / 1000, warmup, logFile: current.logFile };
+    return { seconds: (Date.now() - started) / 1000, warmup, waited, logFile: current.logFile };
   }
 
   function stop() {

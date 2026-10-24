@@ -86,6 +86,7 @@
 ## Repository Rules
 - Runtime assets must live near their owning feature/component or shared primitive.
   - Here: 3D source assets (`.glb`, `.gltf`, `.fbx`) are modules. A model reaches the game only when game code imports it (`import flightCase from '../assets/flight-case.glb'`, `dev/vite/contentAssetsPlugin.mjs`); nothing is picked up from a folder, and the release build (`npm run build`) contains only imported models. The import's default export is the handle that `useContentMesh` / `onAsset` / `onMesh` (`dev/src/shared/engine/content.ts`) take.
+  - Materials are modules too: a `*.material.tsx` beside its feature describes the graph in JSX (`defineMaterial(<material ...>)`, the engine's expressions as elements, `param()`, `<custom>` HLSL; README, "A material"); game code imports its exports and passes them where a material prop goes (`overrideMaterials={[lava]}`, `instance(lava, {...})` for runtime values). Declare only the `usage` the meshes need; read the result in the game (`[material] ... needs usage`, `[content] ... error:` lines), never by comparing frames.
   - UI images stay beside the `dev/ui` component that imports them.
 - Do not import production assets directly from a root `assets/` staging folder. Here: never load cooked content by a hard-coded path into `Plugins/VgeLive`; subscribe with the model import's handle.
 - Keep external references, experiments, and throwaway examples out of committed production paths.

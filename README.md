@@ -106,6 +106,69 @@ Element names are engine class names in camelCase, props are the properties Unre
 and `npm run typecheck` checks them against the engine's own reflection. Save the file and the running
 game updates in place.
 
+## A material
+
+A material is a module named `*.material.tsx`: JSX describes its graph, and each export is a material asset the game
+code imports like a model file.
+
+```tsx
+// dev/src/features/materials/assets/lava.material.tsx, shortened
+import { defineInstance, defineMaterial, param } from '../../../shared/material';
+
+const glowColor = param('glowColor', [1, 0.32, 0.04]);
+const cracks = (
+  <custom outputType="Float1" inputs={{ uv: <textureCoordinate />, t: <time />, scale: param('crackScale', 3) }}
+    code="return saturate(1 - abs(sin(uv.x * scale + t)) * 1.6);" />
+);
+
+const lava = defineMaterial(
+  <material usage={['instancedStaticMeshes']} roughness={param('roughness', 0.65)}
+    baseColor={<linearInterpolate a={param('rockColor', [0.04, 0.035, 0.03])} b={glowColor} alpha={cracks} />}
+    emissiveColor={<multiply a={<multiply a={glowColor} b={cracks} />} b={param('glowStrength', 20)} />} />,
+);
+export default lava;
+export const cooled = defineInstance(lava, { glowStrength: 1.5 });
+```
+
+```tsx
+// a scene
+import lava, { cooled } from '../../assets/lava.material';
+import { instance } from '../../../../shared/material';
+
+<staticMeshComponent staticMesh={CUBE} overrideMaterials={[lava]} />
+<staticMeshComponent staticMesh={SPHERE} overrideMaterials={[instance(lava, { glowStrength: glow })]} ref={sphere} />
+<staticMeshComponent staticMesh={CUBE} overrideMaterials={[cooled]} />
+```
+
+- **Elements** are the engine's material expressions, `UMaterialExpression<Name>` as `<name>` (`<multiply>`,
+  `<linearInterpolate>`, `<textureSample>`, `<custom>`, `<time>`, ...), with their properties and inputs as props,
+  generated from reflection (`Typing/ue/ue-material-jsx.d.ts`) like the scene elements. An input takes a number or a
+  tuple (a constant), `param()`, or another element; `output="R"` picks an output (a Custom expression's extra outputs
+  by name). The same subexpression used twice is one node; function components are expanded.
+- **`<material>`** takes the material's inputs (`baseColor`, `emissiveColor`, `normal`, `opacity`, `customData0`, ...)
+  and settings (`blendMode`, `shadingModel`, `twoSided`, `materialDomain`, any other property of `UMaterial`).
+- **`usage`** lists the usages the material is cooked for, and only those: each one is another set of shaders to
+  compile. A plain static mesh needs none; the renderer packs static meshes without physics, events or ref into an
+  instanced component, which needs `'instancedStaticMeshes'`; a Nanite mesh needs `'nanite'`, a skeletal mesh
+  `'skeletalMesh'`. A material used where its usage is missing logs `[material] ... needs usage ...` in the game (the
+  engine would draw the default material there).
+- **`<custom>`** is Custom HLSL: `code`, `outputType`, `inputs={{ name: <input> }}` (pins in order),
+  `additionalOutputs={{ name: 'Float3' }}`, `additionalDefines={{ NAME: value }}`, `includeFilePaths`.
+- **`param(name, default)`** is a scalar (number), vector (tuple) or texture (object path) parameter.
+  `instance(material, values)` in a scene is a `UMaterialInstanceDynamic` made where it is used: changed values go into
+  the same instance at once (4 ms), with no cook. `defineInstance(material, values)` in a material module is a saved
+  `UMaterialInstanceConstant` with parameter values only (no static switch, no base property override), so its cook
+  compiles no shaders.
+
+Saving a material module puts the new material on every mesh that uses it in the running game: the dev server evaluates
+the module in Node (a `materials` Vite environment), the content service builds each export whose description changed
+(`VgeMaterialBuilder.cpp`, the material editor's `UMaterialEditingLibrary`) under a path that carries the description's
+hash, the DLC cook compiles its shaders for `PCD3D_SM6`, and the game mounts the container and opens its shader library.
+A shader error is printed by the dev server and the game (`[content] ... error: use of undeclared identifier ...`), and
+the meshes keep the last material that compiled. `node tools/measure-material.mjs` measures the edit in the `materials`
+lab (median 3.1 s from save to the new material on both meshes, see Measured). The release build builds the material
+modules the program imports into `/Game/Vge/Imported`.
+
 ## What's inside
 
 - **Main scene** (`npm run shell` or `npm run play`): the stock Mannequin as the player (WASD, Space), a
@@ -147,7 +210,8 @@ physics. What changes is where it gets its instructions.
 - `Source/VibeGameEngineTools` - editor module used only inside `UnrealEditor-Cmd`:
   `VgeGenTypings` writes `Typing/ue` (TypeScript declarations of every reflected type),
   `VgeContentService` is the resident service the dev server owns (import with Nanite, import of
-  animations onto an existing skeleton, delete; JSON lines over stdio), `VgeCook` is a stock cook that starts early and waits in standby
+  animations onto an existing skeleton, materials and material instances from their description
+  (`VgeMaterialBuilder`), delete; JSON lines over stdio), `VgeCook` is a stock cook that starts early and waits in standby
   (`-RunAsCookCommandlet`), `VgeImport` is the same import as a one-shot command.
 - `Plugins/Puerts` - Puerts from master (commit c5cd096, 2026-10-22). Local changes:
   `JsEnv.Build.cs` selects V8 11.8.172 and enables the built-in WebSocket without TLS;
@@ -157,13 +221,19 @@ physics. What changes is where it gets its instructions.
   `%USERPROFILE%\.vge\V8\v8_11.8.172`, which each runtime links as
   `Plugins/Puerts/ThirdParty/v8_11.8.172`.
 - `Plugins/VgeLive` - content-only plugin that live content is cooked into as DLC against the base
-  release (`Releases/dev`).
+  release (`Releases/dev`). Each build's container carries its own shader library, `VgeLive<build>`: a library is
+  one component per name (`FNamedShaderLibrary::OpenShaderCode`), so a second container with a library of the same
+  name would add no shaders.
 - `dev/server.mjs` - Vite dev backend; one server for any number of Unreal processes.
 - `dev/content/` - the content pipeline. `service.mjs` owns the resident content service the way Vite
   owns esbuild (started with the dev server, restarted if it dies; it exits by itself when its stdin
   closes), `cooker.mjs` keeps one warmed-up cook process in standby, `pipeline.mjs` runs a build: the
   cook and packaging are the stock DLC steps BuildCookRun runs; each build gets its own container.
   `decode.mjs` is the glTF rewrite both the pipeline and the release build use.
+- `dev/content/materials.mjs`, `dev/vite/materialAssetsPlugin.mjs`, `dev/src/shared/material` - material modules
+  (`*.material.tsx`, [A material](#a-material)): evaluated in the dev server's `materials` environment, described as
+  content service requests, imported by the game as handles; `dev/src/shared/react/materials.ts` puts them into
+  material props.
 - `dev/vite/contentAssetsPlugin.mjs` - model files (`.glb`, `.gltf`, `.fbx`) as modules: the default export
   is the asset's handle, keyed by the file's path (`src/features/demo/assets/flight-case.glb`); a model lives beside the
   feature that owns it. The dev server builds a file
@@ -387,6 +457,15 @@ the base when engine-side content or code changes. JavaScript is staged as loose
 
 ## Content pipeline notes
 
+- Shaders are cooked for `PCD3D_SM6` only (`Config/DefaultEngine.ini`): the game runs D3D12 SM6, and the cooker
+  targets every format of every RHI list, BaseEngine.ini adding `PCD3D_SM5` to both D3D lists. With two formats a
+  material's compiles run one after the other: `UMaterial::IsCachedCookedPlatformDataLoaded` returns at the first
+  unfinished format, and a format's compile only starts when it is polled (`FMaterial::IsCompilationFinished` ->
+  `FinishCacheShaders`). The cook's "average 1.00 jobs/batch" is the shader compiler working as meant: with fewer pending
+  jobs than workers each job gets a worker of its own (`FShaderCompileThreadRunnable::PullTasksFromQueue`,
+  `DivideAndRoundUp(pending, workers)`), so a material's compile lasts as long as its slowest shader.
+- The cook's 'done' is sent after it has written everything; the build goes on without waiting ~0.6 s for the cook
+  process to exit, and assets that no material export uses any more are deleted after the build reached the games.
 - Interchange in 5.8 cannot read `EXT_meshopt_compression`, `KHR_draco_mesh_compression`,
   `KHR_mesh_quantization`, `EXT_texture_webp`; the decode step rewrites such files as plain glTF/PNG.
 - Stock cook-on-the-fly cannot serve packages created after its session started
@@ -408,6 +487,10 @@ the base when engine-side content or code changes. JavaScript is staged as loose
 | Typings generation (`npm run typings`) | 42 s, `ue.d.ts` 14.6 MB |
 | Content build of one .glb (decode, import + Nanite, DLC cook, pak, IoStore) | 4.0-6.3 s: import 1.1-2.7 s, cook 1.8-2.9 s, pak + IoStore ~1 s |
 | Save of a .glb to the new mesh in the running game | 4.0-4.6 s (27 s with a fresh process per step) |
+| Save of a material module (a new constant in its Custom HLSL) to the new material on both meshes of the `materials` lab (`node tools/measure-material.mjs 5`, 2026-10-24) | median 2.38 s, 2.29-3.18 s: create 0.15 s, cook 1.24-2.08 s (4 shader jobs, 2 compiled), pak + IoStore 0.8 s |
+| The same before cooking one shader format and only the declared usages (PCD3D_SM5 + SM6, skeletal + morph + Nanite + instanced usage, old assets deleted before the cook) | median 7.09 s, 7.04-8.18 s: cook 4.7-4.8 s, the SM5 compile starting only after SM6's had finished |
+| Parameter of `instance(material, ...)` changed from React | 4 ms to the value in the same `UMaterialInstanceDynamic` |
+| Material builds in one game session | 9 containers mounted, each with its shader library opened (`VgeLiveb0022`...`b0030`), no missing shader or default material in the log |
 | Release build (`npm run build`: bundle, import of the imported models, Shipping build, cook, stage) | 1.0-1.4 min with the Shipping target already compiled once |
 | Dev kit memory: content service + standby cooker + Vite | 2.1 GB + 1.7 GB + 0.1 GB working set, once per machine |
 | Scene switch inside one game (`openScene`) | 31-180 ms |
