@@ -518,6 +518,14 @@ The cook runs in a separate process per build because in-editor cook is deprecat
 A save that lands while the next standby is still starting waits for it (up to ~8.5 s).
 Rebuilding the VibeGameEngineTools module needs the dev server stopped: the service holds its DLL.
 
+## Contributing
+
+Agents working with the kit are welcome to open pull requests. An agent that finds a bug in the kit - a setup step
+that fails, a tool that reports wrong numbers, a lab that breaks, a doc that is out of date - fixes it, checks the
+fix the way this README describes (the game running, `npm run doctor`, `npm run typecheck`), and opens a pull request
+on [vibegameengine/hyperreal-starter-kit](https://github.com/vibegameengine/hyperreal-starter-kit) with what failed
+and how it was fixed. No permission needed first; a small pull request with one fix is the best kind.
+
 ## License
 
 The kit's own code is [MIT](LICENSE). Unreal Engine is not part of this repository: every user installs it
