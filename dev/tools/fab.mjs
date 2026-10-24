@@ -8,8 +8,13 @@
 //   node tools/fab.mjs installs                     what was added from the Fab window: state, progress, where it landed
 //   node tools/fab.mjs pack <Pack> [--from <dir>]   a pack already on disk (the launcher's download, VaultCache/<Name>/data)
 //                                                   into Content/<Pack> and its own container, as Add to Project does
+//   node tools/fab.mjs plugin <dir>                 a plugin already on disk (<Name>.uplugin and Source) into
+//                                                   Plugins/Marketplace/<Name> and a runtime build, as Install Plugin does
+//                                                   after its download; waits for the build (half an hour)
 // Needs this kit's dev server and shell (npm run dev, npm run shell). The search goes through the Fab window because
 // fab.com answers only a browser that passed its bot check; when the window shows that check, the user passes it.
+import { readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { chromium } from 'playwright-core';
 import { devServerUrl, ports } from './engine.mjs';
 
@@ -84,11 +89,25 @@ try {
     const answer = await response.json();
     if (answer.error) throw new Error(answer.error);
     console.log(JSON.stringify(answer, null, 2));
+  } else if (command === 'plugin' && positional[0]) {
+    const from = resolve(positional[0]);
+    const answer = await (await fetch(`${devServerUrl()}/__vge/fab/plugin`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from }) })).json();
+    if (answer.error) throw new Error(answer.error);
+    const name = readdirSync(from).find((file) => /\.uplugin$/i.test(file)).replace(/\.uplugin$/i, '');
+    let shown = '';
+    for (;;) {
+      await new Promise((done) => setTimeout(done, 5000));
+      const entry = (await (await fetch(`${devServerUrl()}/__vge/fab/installs`)).json())[`plugin:${name}`];
+      const line = `${entry?.state} ${entry?.progress?.stage ?? ''}`;
+      if (line !== shown) console.log(`[fab] ${name}: ${(shown = line)}`);
+      if (entry?.state === 'done') { console.log(JSON.stringify(entry.result, null, 2)); break; }
+      if (entry?.state === 'failed') throw new Error(entry.error);
+    }
   } else if (command === 'installs') {
     const response = await fetch(`${devServerUrl()}/__vge/fab/installs`);
     console.log(JSON.stringify(await response.json(), null, 2));
   } else {
-    console.error('usage: node tools/fab.mjs search "<words>" [--free] [--format unreal-engine|gltf|fbx] [--count 10] | open <listing link or id> | installs | pack <Pack> [--from <dir>]');
+    console.error('usage: node tools/fab.mjs search "<words>" [--free] [--format unreal-engine|gltf|fbx] [--count 10] | open <listing link or id> | installs | pack <Pack> [--from <dir>] | plugin <dir>');
     process.exit(1);
   }
 } catch (err) {

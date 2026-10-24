@@ -15,7 +15,8 @@ interface FabInstall {
   error?: string
 }
 
-// A finished install's notice stays this long; a failed one until it is closed.
+// A finished install's notice stays this long; a failed one, and a plugin's (the dev server is to be restarted), until
+// it is closed.
 const DONE_MS = 20000
 
 function where(install: FabInstall): string {
@@ -26,7 +27,7 @@ function where(install: FabInstall): string {
     const mesh = result.objects?.find((each) => each.class === 'StaticMesh' || each.class === 'SkeletalMesh')
     return `in the project: ${result.key}${mesh ? `, ${mesh.path}` : ''}`
   }
-  return `plugin ${result.plugin} installed, the runtime was rebuilt: restart the dev server`
+  return `as plugin ${result.plugin}; the runtime was built with it: restart the dev server (npm run stop, npm run dev)`
 }
 
 function status(install: FabInstall): string {
@@ -46,7 +47,7 @@ export function FabNotices() {
     const dismiss = (id: string) => setInstalls(({ [id]: _, ...rest }) => rest)
     const onInstall = (install: FabInstall) => {
       setInstalls((all) => ({ ...all, [install.id]: install }))
-      if (install.state === 'done') timers.set(install.id, window.setTimeout(() => dismiss(install.id), DONE_MS))
+      if (install.state === 'done' && install.result?.kind !== 'plugin') timers.set(install.id, window.setTimeout(() => dismiss(install.id), DONE_MS))
     }
     import.meta.hot.on('vge:fab-install', onInstall)
     return () => {

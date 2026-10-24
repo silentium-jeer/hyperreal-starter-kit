@@ -179,6 +179,8 @@ function evalPlugin() {
 //   GET  /__vge/fab/installs  every install from the Fab window, with its state and where it landed (tools/fab.mjs)
 //   POST /__vge/fab/pack      {"name":"<Pack>","from":"<folder holding Content/<Pack>>"}: a pack already on disk (the
 //                             launcher's VaultCache download) into Content/<Pack> and its container, as Add to Project
+//   POST /__vge/fab/plugin    {"from":"<folder holding <Name>.uplugin>"}: a plugin already on disk into
+//                             Plugins/Marketplace/<Name> and the runtime, as Install Plugin after its download
 // Its middleware goes ahead of the lean transport's, which holds a response back until it ends.
 function fabPlugin() {
   return {
@@ -217,6 +219,19 @@ function fabPlugin() {
           server.ws.send({ type: 'custom', event: 'vge:fab-open', data: { url } });
           res.setHeader('content-type', 'application/json');
           res.end(JSON.stringify({ pages: server.ws.clients.size }));
+          return;
+        }
+        if (req.method === 'POST' && path === '/plugin') {
+          // Answered at once: the runtime build takes half an hour; /installs follows it (id `plugin:<Name>`).
+          const { from } = await readJson(req);
+          res.setHeader('content-type', 'application/json');
+          try {
+            fab.addPlugin(from).catch(() => {});
+            res.end(JSON.stringify({ started: true }));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
           return;
         }
         if (req.method === 'POST' && path === '/pack') {

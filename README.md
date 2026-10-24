@@ -285,6 +285,10 @@ Plugin, and pressing one does here what the plugin does in the editor (`dev/cont
 - A plugin (Install Plugin): its build lands in `Plugins/Marketplace/<Name>` (as `PluginInstallWorkflow`), and the
   runtime is built again for the kit's sources with it (`npm run build:cpp`, run by the dev server; restart the dev
   server afterwards): the game is monolithic, so a plugin's code is linked into it.
+- A pack or a plugin already on disk goes the same way from the step after its download: `npm run fab -- pack <Pack>
+  --from <folder with Content/<Pack>>` (the launcher's VaultCache download), `npm run fab -- plugin <folder with
+  <Name>.uplugin>`; `dev/content/samples/VgeHelloPlugin` is a code plugin laid out as a Fab download, which a game on
+  the rebuilt runtime calls as `UE.VgeHelloPlugin.Hello('kit')`.
 
 What comes from Fab is licensed to the user, not to the repository: `Plugins/Marketplace` is ignored by git, and a
 pack's or a model's folder gets its own `.gitignore`. The Fab window shows only Fab's own pages; sign-in and payment

@@ -182,7 +182,8 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, notify = ()
   }
 
   function buildRuntime(entry, progress) {
-    const logFile = join(fabDir, `build-cpp-${entry.id}.log`);
+    // A file name from the install's id (`plugin:<Name>` for a plugin from disk: no colon in a Windows file name).
+    const logFile = join(fabDir, `build-cpp-${entry.id.replace(/[^\w.-]/g, '-')}.log`);
     progress({ stage: 'building the runtime' });
     return new Promise((resolvePromise, reject) => {
       const out = createWriteStream(logFile);
@@ -201,7 +202,13 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, notify = ()
       { kind: 'plugin', manifestUrl: downloadUrl, baseUrls, installDir: pluginsDir, stagingDir: join(fabDir, 'Staging', entry.id) },
       { onProgress: (event) => progress({ stage: 'downloading', percent: event.percent, downloaded: event.downloaded, total: event.total }) },
     );
-    const plugin = relocatePlugin(pluginsDir, result.files);
+    return setUpPlugin(entry, pluginsDir, result.files, progress);
+  }
+
+  // The plugin's files are under Plugins (`files`, from there): it goes into Plugins/Marketplace/<Name>, enabled, and
+  // the runtime is built with it.
+  async function setUpPlugin(entry, pluginsDir, files, progress) {
+    const plugin = relocatePlugin(pluginsDir, files);
     const descriptorFile = join(plugin.dir, `${plugin.name}.uplugin`);
     const descriptor = JSON.parse(readFileSync(descriptorFile, 'utf8').replace(/^\uFEFF/, ''));
     const modules = (descriptor.Modules ?? []).map((module) => module.Name);
@@ -216,13 +223,13 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, notify = ()
     return { kind: 'plugin', plugin: plugin.name, dir: plugin.dir, modules, buildLog: logFile, restartDevServer: true };
   }
 
-  async function install(method, downloadUrl, metadata, progress) {
-    const id = field(metadata, 'AssetId') ?? `${Date.now()}`;
-    const type = field(metadata, 'AssetType') ?? '';
-    const entry = { id, name: field(metadata, 'AssetName') ?? id, type, method, state: 'started', startedAt: new Date().toISOString() };
+  // One install, kept in installs.json and told to the user (notify) as it goes: `work(entry, report)` does it.
+  async function track(entry, work, progress = () => {}) {
+    const { id } = entry;
     if (installs[id]?.state === 'started' && Date.now() - Date.parse(installs[id].startedAt) < 6 * 3600_000) {
       throw new Error(`${entry.name} is already being installed`);
     }
+    Object.assign(entry, { state: 'started', startedAt: new Date().toISOString() });
     installs[id] = entry;
     saveInstalls();
     notify(entry);
@@ -232,14 +239,9 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, notify = ()
       progress(value);
       if (changed) notify(entry);
     };
-    log(`[fab] ${method} ${entry.name} (${id}, ${type})`);
+    log(`[fab] ${entry.method} ${entry.name} (${id}, ${entry.type})`);
     try {
-      const baseUrls = field(metadata, 'DistributionPointBaseUrls') ?? [];
-      let result;
-      if (method === 'installtoproject' || method === 'installtoengine') result = await installPlugin(entry, downloadUrl, baseUrls, report);
-      else if (type === 'unreal-engine') result = await installPack(entry, downloadUrl, baseUrls, report);
-      else if (['gltf', 'glb', 'fbx'].includes(type) || field(metadata, 'IsQuixel')) result = await installModel(entry, downloadUrl, report);
-      else throw new Error(`the kit does not take ${type || 'this kind of'} listings yet`);
+      const result = await work(entry, report);
       Object.assign(entry, { state: 'done', result, finishedAt: new Date().toISOString() });
       log(`[fab] ${entry.name} is in the project: ${JSON.stringify(result)}`);
       return result;
@@ -251,6 +253,39 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, notify = ()
       saveInstalls();
       notify(entry);
     }
+  }
+
+  function install(method, downloadUrl, metadata, progress) {
+    const id = field(metadata, 'AssetId') ?? `${Date.now()}`;
+    const type = field(metadata, 'AssetType') ?? '';
+    const entry = { id, name: field(metadata, 'AssetName') ?? id, type, method };
+    const baseUrls = field(metadata, 'DistributionPointBaseUrls') ?? [];
+    return track(
+      entry,
+      (each, report) => {
+        if (method === 'installtoproject' || method === 'installtoengine') return installPlugin(each, downloadUrl, baseUrls, report);
+        if (type === 'unreal-engine') return installPack(each, downloadUrl, baseUrls, report);
+        if (['gltf', 'glb', 'fbx'].includes(type) || field(metadata, 'IsQuixel')) return installModel(each, downloadUrl, report);
+        throw new Error(`the kit does not take ${type || 'this kind of'} listings yet`);
+      },
+      progress,
+    );
+  }
+
+  // A plugin already on disk (a folder holding <Name>.uplugin and its Source, as a Fab download lays it out): from
+  // there on, the same install as Install Plugin's after its download (setUpPlugin).
+  function addPlugin(from) {
+    const descriptor = readdirSync(from).find((file) => /\.uplugin$/i.test(file));
+    if (!descriptor) throw new Error(`no .uplugin in ${from}`);
+    const name = descriptor.replace(/\.uplugin$/i, '');
+    const pluginsDir = join(projectDir, 'Plugins');
+    return track({ id: `plugin:${name}`, name, type: 'plugin', method: 'installtoproject' }, (entry, report) => {
+      report({ stage: 'copying' });
+      const target = join(pluginsDir, 'Marketplace', name);
+      rmSync(target, { recursive: true, force: true });
+      cpSync(from, target, { recursive: true, filter: (path) => !/[\\/](Binaries|Intermediate)([\\/]|$)/.test(path.slice(from.length)) });
+      return setUpPlugin(entry, pluginsDir, [`Marketplace/${name}/${descriptor}`], report);
+    });
   }
 
   // One call of window.ue.fab from the Fab window. `progress` reports how far a long call is.
@@ -282,5 +317,5 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, notify = ()
     }
   }
 
-  return { call, addPack, installs: () => installs };
+  return { call, addPack, addPlugin, installs: () => installs };
 }
