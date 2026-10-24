@@ -1,6 +1,7 @@
 import * as UE from 'ue';
 import { $ref, $unref } from 'puerts';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import { captureMouse, releaseMouse } from '../../shared/engine/mouse';
 import { viewFrom, world } from '../../shared/engine/world';
 import { useFrame } from '../../shared/react';
 import type { Vector3 } from '../../shared/react/props';
@@ -10,7 +11,7 @@ import type { Vector3 } from '../../shared/react/props';
 //   left drag or Alt + left drag  orbit around the focus
 //   middle drag                   pan the focus
 //   wheel or Alt + right drag     dolly towards / away from the focus
-//   hold right button             look around in place and fly with WASD, Q / E down / up, Shift faster
+//   hold right button             cursor hidden: look around in place and fly with WASD, Q / E down / up, Shift faster
 //   F                             back to the starting view
 // It reads the cursor position rather than mouse deltas, which the engine reports only while the mouse is captured.
 const ORBIT_DEGREES_PER_PIXEL = 0.3;
@@ -22,6 +23,7 @@ const DISTANCE_RANGE = [30, 50000] as const;
 const MIN_FOCUS_DISTANCE = 150;
 const FLY_SPEED = 600; // cm/s
 const FLY_FAST = 3;
+const FLY_LOOK_DEGREES_PER_UNIT = 0.4; // of the captured mouse's delta, as the player camera turns
 const KEYS = {
   left: new UE.Key('LeftMouseButton'), middle: new UE.Key('MiddleMouseButton'), right: new UE.Key('RightMouseButton'),
   leftAlt: new UE.Key('LeftAlt'), rightAlt: new UE.Key('RightAlt'), wheel: new UE.Key('MouseWheelAxis'), frame: new UE.Key('F'),
@@ -69,9 +71,17 @@ export function OrbitCamera({ location, rotation, focus }: OrbitCameraProps) {
   const start = useRef(orbitFrom(location, rotation, focus));
   const orbit = useRef<Orbit>({ ...start.current });
   const lastCursor = useRef<[number, number] | null>(null);
+  // While flying: where the cursor was when the right button went down (null if it was outside the window).
+  const flying = useRef<[number, number] | null | undefined>(undefined);
   const cursorX = $ref(0);
   const cursorY = $ref(0);
   const ignoredHit = $ref(new UE.HitResult());
+  useEffect(
+    () => () => {
+      if (flying.current !== undefined) releaseMouse();
+    },
+    [],
+  );
 
   useFrame((deltaSeconds) => {
     const actor = camera.current;
@@ -105,11 +115,18 @@ export function OrbitCamera({ location, rotation, focus }: OrbitCameraProps) {
     } else if (alt && down(KEYS.right)) {
       view.distance *= 1 + dy * DOLLY_PER_PIXEL;
     } else if (down(KEYS.right)) {
-      // Fly: the camera stays where it is and turns; the focus is carried in front of it at the same distance.
+      // Fly: the cursor hides and the mouse is captured, as in an editor viewport; it comes back where it was.
+      if (!flying.current) {
+        flying.current = lastCursor.current;
+        captureMouse();
+      }
+      controller.GetInputMouseDelta(cursorX, cursorY);
+      const [lookX, lookY] = [$unref(cursorX) * FLY_LOOK_DEGREES_PER_UNIT, $unref(cursorY) * FLY_LOOK_DEGREES_PER_UNIT];
+      // The camera stays where it is and turns; the focus is carried in front of it at the same distance.
       const before = forwardOf(view.pitch, view.yaw);
       const eye: Vector3 = [view.focus[0] - before[0] * view.distance, view.focus[1] - before[1] * view.distance, view.focus[2] - before[2] * view.distance];
-      view.yaw = (view.yaw + dx * ORBIT_DEGREES_PER_PIXEL) % 360;
-      view.pitch = Math.min(PITCH_RANGE[1], Math.max(PITCH_RANGE[0], view.pitch - dy * ORBIT_DEGREES_PER_PIXEL));
+      view.yaw = (view.yaw + lookX) % 360;
+      view.pitch = Math.min(PITCH_RANGE[1], Math.max(PITCH_RANGE[0], view.pitch + lookY));
       const ahead = forwardOf(view.pitch, view.yaw);
       const right: Vector3 = [-Math.sin(radians(view.yaw)), Math.cos(radians(view.yaw)), 0];
       const axis = (plus: UE.Key, minus: UE.Key) => (down(plus) ? 1 : 0) - (down(minus) ? 1 : 0);
@@ -118,6 +135,13 @@ export function OrbitCamera({ location, rotation, focus }: OrbitCameraProps) {
       const move = (i: 0 | 1 | 2) => eye[i] + (ahead[i] * f + right[i] * r + (i === 2 ? u : 0)) * step;
       const moved: Vector3 = [move(0), move(1), move(2)];
       view.focus = [moved[0] + ahead[0] * view.distance, moved[1] + ahead[1] * view.distance, moved[2] + ahead[2] * view.distance];
+    }
+    if (flying.current !== undefined && !down(KEYS.right)) {
+      const cursor = flying.current;
+      flying.current = undefined;
+      releaseMouse();
+      if (cursor) controller.SetMouseLocation(Math.round(cursor[0]), Math.round(cursor[1]));
+      lastCursor.current = null;
     }
     const wheel = controller.GetInputAnalogKeyState(KEYS.wheel);
     if (wheel) view.distance *= 1 - wheel * DOLLY_PER_WHEEL_STEP;
