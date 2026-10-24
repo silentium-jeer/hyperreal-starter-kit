@@ -61,7 +61,8 @@
 - Never multiply scene coordinates or transforms to resize/spread a composition. Structures are local-coordinate prefabs moved manually as one unit.
 - Every scene entity/prefab/character/building root scale is always `[1, 1, 1]`; dimensions belong to prefab geometry.
 - Visual object acceptance is valid only after rendered front/side/back inspection in a DEV-only isolated scene (a lab, `npm run play -- --lab <id>`, windowed). A full-level frame never substitutes for this gate.
-- Here: Unreal units are centimetres and Z is up; the shared lab stage (`dev/src/scenes/lab-stage`) owns sun, sky, ground and camera for every lab.
+- Here: Unreal units are centimetres and Z is up; the shared lab stage (`dev/src/scenes/lab-stage`) owns sun, sky, ground and camera (an orbit camera) for every lab.
+- A lab is for people as well as agents: it ships with a HUD that shows the subject's live state and controls every case the lab shows, and a captured preview; no on-screen instructions (skill `dev-lab-authoring`, rule 5).
 
 ## Runtime Checks
 - The web kit used Playwright for browser/runtime verification instead of HTTP-only checks. Here the three instruments are:

@@ -223,6 +223,42 @@ unchanged: a real captured frame of that lab from a rendered window (never a
 `-nullrhi` process, never a hand-drawn icon), committed with the lab, re-captured
 when its look changes, and a missing one visibly missing.
 
+### 5. A lab is for a PERSON as much as for an agent
+
+A lab ships with the kit: people open it from the shell's index to see what the
+kit can do and to play with it. A lab that only an agent can read through
+`node tools/game.mjs` is unfinished, however correct its numbers are. Before
+writing the lab, decide what a person needs to understand the subject in a minute
+and to control it:
+
+- **See what is happening.** The state that explains the subject is on screen,
+  live: for an animation graph the shape of the running graph, the active state,
+  the blend weights; for a material its parameters; for physics the counts and
+  speeds that matter. Read it from the real system (the engine's own report), not
+  from what the lab believes it set.
+- **Control it.** Every variable the lab exposes to `globalThis.<lab>` for agents
+  has a control in the lab's HUD as well: a choice for modes, a slider for
+  weights and distances, a toggle for on/off. The person reaches every case the
+  lab exists to show, without a console.
+- **One line of meaning per mode.** A short sentence saying what the current mode
+  shows and what to try. Nothing more.
+- **No clutter.** No instructions for things a person learns in two minutes on
+  their own (how the camera moves, what a slider is). The screen belongs to the
+  subject.
+
+How: the lab sends its state to the HUD a few times a second with `sendToHud`
+and takes commands with `useHudMessages` (`dev/src/shared/react/hud.ts`); its
+panels live in `dev/ui/hud/<Lab>Hud.tsx`, are mounted in `dev/ui/hud.tsx`, read
+the state with `useGameState('<lab>/state')` (they leave when the lab does), and
+are built from the UI kit's `ControlPanel`, `ControlChoice`, `ControlSlider`,
+`ControlButton`. The animation graph lab (`AnimGraphLabHud.tsx`) is the example.
+
+The stage's camera is an orbit camera (`dev/src/scenes/lab-stage/OrbitCamera.tsx`,
+the editor viewport camera of Unity's Scene view): drag orbits around the
+subject, middle drag pans, the wheel zooms, holding the right button flies with
+WASD. A lab gives it a starting view with `LabStage camera={{ location, rotation,
+focus? }}`; only a lab with its own camera (a player's) passes `camera={null}`.
+
 ## What a lab owns, and what it must not
 
 **A lab owns:** its subject on the shared stage; the drivers that move it
@@ -317,6 +353,8 @@ A lab is done when all of these are true:
       committed with it — rule 4.
 - [ ] It drives the real system, and its readout matches the shape of the file
       the values belong in.
+- [ ] A person who opens it sees what is happening and controls every case it
+      shows from its HUD, with no console and no on-screen instructions — rule 5.
 - [ ] Every UI control it adds has a `data-testid`.
 - [ ] It has been opened with `npm run play -- --lab <id>` in a rendered window,
       captured, and looked at.

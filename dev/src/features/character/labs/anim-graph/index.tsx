@@ -1,11 +1,12 @@
 import * as UE from 'ue';
 import { useEffect, useRef, useState } from 'react';
 import { LabStage } from '../../../../scenes/lab-stage/LabStage';
-import { param, useFrame } from '../../../../shared/react';
+import { param, sendToHud, useFrame, useHudMessages } from '../../../../shared/react';
 import { MANNEQUIN_MESHES } from '../../entities/mannequin';
 
 // Animation graphs written as JSX. A mannequin (a bare skeletal mesh component) whose graph changes shape, and a
-// character whose graph mounts and unmounts while the character stays. The lab is driven from outside through
+// character whose graph mounts and unmounts while the character stays. A person drives the lab from its HUD
+// (dev/ui/hud/AnimGraphLabHud.tsx: the shape, the graph variables, the running graph); an agent from outside through
 // globalThis.animGraphLab (node tools/game.mjs "animGraphLab.setShape('machine')"): shape, the graph variables
 // written every frame from React (mix, go, index, reach: the IK effector's forward offset), extraPose and characterGraph.
 
@@ -15,6 +16,19 @@ const JOG = `${ANIMS}/Jog/MF_Unarmed_Jog_Fwd.MF_Unarmed_Jog_Fwd`;
 const LINKED = `${ANIMS}/ABP_Unarmed.ABP_Unarmed_C`;
 
 export type Shape = 'clip' | 'blend' | 'machine' | 'blendList' | 'blendByBool' | 'layered' | 'slot' | 'ik' | 'linked';
+
+const HUD_STATE_EVERY_MS = 200;
+// The nodes whose runtime state the HUD shows: the state machine's current state and weights, a blend list's weights.
+const WATCHED_NODE = /(stateMachine|blendList)#([^[(,\s]+)/;
+
+// The running graph as the HUD shows it: the node tree the engine reports and the watched node's runtime state.
+function describe(graph: UE.VgeAnimInstance | null) {
+  if (!graph) return { tree: '', node: null };
+  const tree = graph.DescribeGraph();
+  const watched = WATCHED_NODE.exec(tree);
+  const node = watched ? graph.DescribeNode(watched[2]) : '';
+  return { tree, node: node ? JSON.parse(node) : null };
+}
 
 function MannequinGraph({ shape, extraPose }: { shape: Shape; extraPose: boolean }) {
   if (shape === 'clip') return <clip sequence={IDLE} />;
@@ -112,6 +126,21 @@ export function Scene() {
       if ((globalThis as any).animGraphLab === lab) delete (globalThis as any).animGraphLab;
     };
   }, []);
+
+  useHudMessages((message) => {
+    if (message.type === 'animGraph/shape') setShape(message.shape as Shape);
+    if (message.type === 'animGraph/characterGraph') setCharacterGraph(Boolean(message.on));
+    if (message.type === 'animGraph/extraPose') setExtraPose(Boolean(message.on));
+    if (message.type === 'animGraph/variable') Object.assign(controls.current, { [String(message.name)]: message.value });
+  });
+
+  useEffect(() => {
+    const timer = setInterval(
+      () => sendToHud({ type: 'animGraph/state', shape, characterGraph, extraPose, ...controls.current, ...describe(graph.current) }),
+      HUD_STATE_EVERY_MS,
+    );
+    return () => clearInterval(timer);
+  }, [shape, characterGraph, extraPose]);
 
   // Graph variables come from React every frame; the props bound to them (param) and the conditions read them.
   useFrame(() => {

@@ -1,12 +1,15 @@
 import * as UE from 'ue';
-import { colored, viewFrom } from '../../shared/engine/world';
+import { colored } from '../../shared/engine/world';
 import type { Vector3 } from '../../shared/react/props';
+import { OrbitCamera } from './OrbitCamera';
 
-// The shared stage React labs render instead of building their own sun, sky, ground and camera.
+// The shared stage React labs render instead of building their own sun, sky, ground and camera. The camera is an
+// orbit camera (OrbitCamera) starting from `camera`, around `camera.focus` or the subject at the world origin; a lab
+// with its own camera (a player's) passes camera={null}.
 export interface LabStageProps {
   ground?: boolean;
   groundSize?: number;
-  camera?: { location: Vector3; rotation: Vector3 } | null;
+  camera?: { location: Vector3; rotation: Vector3; focus?: Vector3 } | null;
   sunPitch?: number;
   sunYaw?: number;
 }
@@ -23,12 +26,7 @@ export function LabStage({ ground = true, groundSize = 40, camera = { location: 
       <skyLight location={[0, 0, 200]} lightComponent={{ mobility: UE.EComponentMobility.Movable, realTimeCapture: true }} />
       {/* A thin box rather than the plane: it has solid box collision for characters and physics bodies. */}
       {ground && <staticMeshComponent location={[0, 0, -5]} scale={[groundSize, groundSize, 0.1]} staticMesh={CUBE} overrideMaterials={[colored([0.35, 0.35, 0.38])]} />}
-      {camera && (
-        // ACameraActor constrains to 16:9 by default (CameraActor.cpp), which letterboxes any other window shape.
-        <cameraActor ref={(actor) => {
-            if (actor) viewFrom(actor);
-          }} location={camera.location} rotation={camera.rotation} cameraComponent={{ constrainAspectRatio: false }} />
-      )}
+      {camera && <OrbitCamera location={camera.location} rotation={camera.rotation} focus={camera.focus} />}
     </>
   );
 }

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
-import { onGameMessage, post } from '../bridge'
+import { post } from '../bridge'
 import { ControlButton, ControlChoice, ControlPanel, ControlSlider } from '../features/ui-kit'
 import styles from './MainSceneHud.module.css'
+import { useGameState } from './useGameState'
 
 type MainSceneState = { fps: number; sunPitch: number; raining: boolean; quality: number }
 
@@ -18,21 +19,8 @@ const QUALITY_LEVELS = [
 const SUN_HIGHEST = -80
 const SUN_LOWEST = -5
 
-function useMainSceneState() {
-  const [state, setState] = useState<MainSceneState>()
-  useEffect(() => {
-    const stopListening = onGameMessage((message) => {
-      if (message.type === 'main/state') setState(message as unknown as MainSceneState)
-    })
-    return () => {
-      stopListening()
-    }
-  }, [])
-  return state
-}
-
 export function MainSceneHud() {
-  const state = useMainSceneState()
+  const state = useGameState<MainSceneState>('main/state')
   const [sunPitch, setSunPitch] = useState<number>()
 
   if (!state) return null
