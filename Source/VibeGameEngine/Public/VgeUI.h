@@ -1,9 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "InputCoreTypes.h"
 #include "UObject/Object.h"
 #include "VgeUI.generated.h"
 
+class IWebBrowserWindow;
 class SWebBrowser;
 class SWidget;
 
@@ -15,6 +17,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FVgeUIMessage, const FString&, Json)
 //   game -> page: Send(json)                          page receives window.__vgeReceive(message)
 // The page reports the rectangles of its interactive elements (window.ue.vge.setinteractiverects);
 // the cursor over one of them goes to the browser, anywhere else to the game.
+// A pointer the game draws itself (the system cursor captured and hidden) reaches the page through PointerMove,
+// PointerButton and PointerWheel: the browser gets them as real mouse input (hover, drag, trusted events).
 UCLASS()
 class VIBEGAMEENGINE_API UVgeUI : public UObject
 {
@@ -37,6 +41,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Vge|UI")
 	bool IsShown() const { return Overlay.IsValid(); }
 
+	// Position in game viewport pixels (as PlayerController.GetMousePosition gives them).
+	UFUNCTION(BlueprintCallable, Category = "Vge|UI")
+	void PointerMove(FVector2D Position);
+
+	// Button: 0 left, 1 right, 2 middle.
+	UFUNCTION(BlueprintCallable, Category = "Vge|UI")
+	void PointerButton(FVector2D Position, int32 Button, bool bDown);
+
+	UFUNCTION(BlueprintCallable, Category = "Vge|UI")
+	void PointerWheel(FVector2D Position, float Delta);
+
 	// Called by the page.
 	UFUNCTION()
 	void Post(const FString& Json);
@@ -47,8 +62,13 @@ public:
 
 private:
 	bool IsCursorOverInteractive() const;
+	enum class EPointer : uint8 { Move, Down, Up, Wheel };
+	void SendPointer(EPointer Kind, FVector2D Position, const FKey& Button, float WheelDelta);
 
 	TSharedPtr<SWebBrowser> Browser;
+	TSharedPtr<IWebBrowserWindow> Window;
+	TSet<FKey> PressedButtons;
+	FVector2D LastPointer = FVector2D::ZeroVector;
 	TSharedPtr<SWidget> Overlay;
 	TArray<FBox2f> InteractiveRects;
 	float PageWidth = 0.f;

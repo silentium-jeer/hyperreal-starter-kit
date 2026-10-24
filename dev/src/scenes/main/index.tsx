@@ -1,3 +1,4 @@
+import * as UE from 'ue';
 import { useEffect, useRef, useState } from 'react';
 import { LabStage } from '../lab-stage/LabStage';
 import { Player } from '../../features/character/entities/Player';
@@ -18,6 +19,15 @@ function useSmoothedFps() {
   return fps;
 }
 
+// The engine's scalability level (0 Low .. 4 Cinematic, -1 when the groups differ), applied for the whole game.
+const qualityLevel = () => UE.GameUserSettings.GetGameUserSettings().GetOverallScalabilityLevel();
+function setQualityLevel(level: number) {
+  const settings = UE.GameUserSettings.GetGameUserSettings();
+  settings.SetOverallScalabilityLevel(level);
+  // Not ApplySettings: that also applies the stored resolution and window mode and takes the window fullscreen.
+  settings.ApplyNonResolutionSettings();
+}
+
 export function Scene() {
   const [sunPitch, setSunPitch] = useState(DEFAULT_SUN_PITCH);
   const [raining, setRaining] = useState(false);
@@ -26,10 +36,14 @@ export function Scene() {
   useHudMessages((message) => {
     if (message.type === 'main/sun') setSunPitch(Number(message.pitch));
     if (message.type === 'main/rain') setRaining(Boolean(message.on));
+    if (message.type === 'main/quality') setQualityLevel(Number(message.level));
   });
 
   useEffect(() => {
-    const timer = setInterval(() => sendToHud({ type: 'main/state', fps: Math.round(fps.current), sunPitch, raining }), HUD_STATE_EVERY_MS);
+    const timer = setInterval(
+      () => sendToHud({ type: 'main/state', fps: Math.round(fps.current), sunPitch, raining, quality: qualityLevel() }),
+      HUD_STATE_EVERY_MS,
+    );
     return () => clearInterval(timer);
   }, [sunPitch, raining]);
 

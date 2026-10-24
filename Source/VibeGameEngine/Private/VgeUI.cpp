@@ -6,6 +6,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "IWebBrowserSchemeHandler.h"
 #include "IWebBrowserSingleton.h"
+#include "IWebBrowserWindow.h"
 #include "Misc/App.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -134,14 +135,18 @@ void UVgeUI::Show(const FString& Url)
 		return;
 	}
 
-	SAssignNew(Browser, SWebBrowser)
-		.InitialURL(Url)
+	// The window is created here, not by the widget, so that pointer input can be sent to it directly.
+	FCreateBrowserWindowSettings Settings;
+	Settings.InitialURL = Url;
+	Settings.bUseTransparency = true;
+	Settings.bShowErrorMessage = true;
+	Settings.BackgroundColor = FColor(0, 0, 0, 0);
+	Settings.BrowserFrameRate = 60;
+	Window = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(Settings);
+
+	SAssignNew(Browser, SWebBrowser, Window)
 		.ShowControls(false)
 		.ShowAddressBar(false)
-		.ShowErrorMessage(true)
-		.SupportsTransparency(true)
-		.BackgroundColor(FColor(0, 0, 0, 0))
-		.BrowserFrameRate(60)
 		.OnConsoleMessage_Lambda([](const FString& Message, const FString& Source, int32 Line, EWebBrowserConsoleLogSeverity Severity)
 		{
 			UE_LOGF(LogVgeUI, Display, "[page] %ls (%ls:%d)", *Message, *Source, Line);
@@ -166,7 +171,63 @@ void UVgeUI::Hide()
 	}
 	Overlay.Reset();
 	Browser.Reset();
+	Window.Reset();
+	PressedButtons.Reset();
 	InteractiveRects.Reset();
+}
+
+void UVgeUI::PointerMove(FVector2D Position)
+{
+	SendPointer(EPointer::Move, Position, EKeys::Invalid, 0.f);
+}
+
+void UVgeUI::PointerButton(FVector2D Position, int32 Button, bool bDown)
+{
+	const FKey Key = Button == 1 ? EKeys::RightMouseButton : (Button == 2 ? EKeys::MiddleMouseButton : EKeys::LeftMouseButton);
+	SendPointer(bDown ? EPointer::Down : EPointer::Up, Position, Key, 0.f);
+}
+
+void UVgeUI::PointerWheel(FVector2D Position, float Delta)
+{
+	SendPointer(EPointer::Wheel, Position, EKeys::Invalid, Delta);
+}
+
+void UVgeUI::SendPointer(EPointer Kind, FVector2D Position, const FKey& Button, float WheelDelta)
+{
+	UGameViewportClient* Viewport = GEngine ? GEngine->GameViewport : nullptr;
+	if (!Window.IsValid() || !Browser.IsValid() || !Viewport)
+	{
+		return;
+	}
+	FVector2D ViewportSize;
+	Viewport->GetViewportSize(ViewportSize);
+	const FGeometry& Geometry = Browser->GetTickSpaceGeometry();
+	if (ViewportSize.X <= 0.0 || ViewportSize.Y <= 0.0)
+	{
+		return;
+	}
+	// Viewport pixels to the browser widget's local units (it covers the viewport), then to screen space.
+	const FVector2D Local = Position * (FVector2D(Geometry.GetLocalSize()) / ViewportSize);
+	const FVector2D Screen = FVector2D(Geometry.LocalToAbsolute(Local));
+
+	if (Kind == EPointer::Down)
+	{
+		PressedButtons.Add(Button);
+	}
+	const FPointerEvent Event(0, 0, Screen, LastPointer, PressedButtons, Button, WheelDelta, FSlateApplication::Get().GetModifierKeys());
+	if (Kind == EPointer::Up)
+	{
+		PressedButtons.Remove(Button);
+	}
+	LastPointer = Screen;
+
+	switch (Kind)
+	{
+	case EPointer::Move: Window->OnMouseMove(Geometry, Event, false); break;
+	case EPointer::Down: Window->OnMouseButtonDown(Geometry, Event, false); break;
+	case EPointer::Up: Window->OnMouseButtonUp(Geometry, Event, false); break;
+	case EPointer::Wheel: Window->OnMouseWheel(Geometry, Event, false); break;
+	}
 }
 
 void UVgeUI::Send(const FString& Json)

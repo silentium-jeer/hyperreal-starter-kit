@@ -31,6 +31,14 @@
 		{
 			"Name": "AndroidFileServer",
 			"Enabled": false
+		},
+		{
+			"Name": "GameInputWindows",
+			"Enabled": true
+		},
+		{
+			"Name": "XInputDevice",
+			"Enabled": false
 		}
 	]
 }

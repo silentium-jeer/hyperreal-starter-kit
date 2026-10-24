@@ -1,5 +1,6 @@
 import * as UE from 'ue';
-import { gameInstance, world } from '../shared/engine/world';
+import { releaseMouse } from '../shared/engine/mouse';
+import { gameInstance } from '../shared/engine/world';
 
 // Game side of the HUD page (dev/ui/hud.html): the page this game draws over its own scene, served by the dev
 // server, or in the release build staged in Content/UI. Scene choice and the lab index are the shell's
@@ -13,6 +14,6 @@ export const devServerHttp = () => (gameInstance.DevServerUrl as string).replace
 
 export function mountUIHost() {
   if (!ui.IsShown()) ui.Show(pageUrl());
-  // The cursor stays visible so the page can be used without a mode switch.
-  UE.GameplayStatics.GetPlayerController(world, 0).bShowMouseCursor = true;
+  // The cursor starts free so the page can be used; game code takes the mouse with wantMouseCapture.
+  releaseMouse();
 }
