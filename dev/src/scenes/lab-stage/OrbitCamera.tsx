@@ -47,6 +47,17 @@ function orbitFrom(location: Vector3, rotation: Vector3, focus?: Vector3): Orbit
   return { focus: [location[0] + forward[0] * along, location[1] + forward[1] * along, location[2] + forward[2] * along], yaw, pitch, distance: along };
 }
 
+// An editor viewport renders without camera motion blur (FEngineShowFlags::Init, ShowFlags.h: MotionBlur is off in
+// ESFIM_Editor); a game view has it on, so orbiting smeared the subject the camera circles. The camera's own post
+// process turns it off for this camera only.
+function withoutMotionBlur(component: UE.CameraComponent) {
+  const settings = component.PostProcessSettings;
+  settings.bOverride_MotionBlurAmount = true;
+  settings.MotionBlurAmount = 0;
+  component.PostProcessSettings = settings;
+  component.PostProcessBlendWeight = 1;
+}
+
 export interface OrbitCameraProps {
   location: Vector3;
   rotation: Vector3;
@@ -122,7 +133,9 @@ export function OrbitCamera({ location, rotation, focus }: OrbitCameraProps) {
     // ACameraActor constrains to 16:9 by default (CameraActor.cpp), which letterboxes any other window shape.
     <cameraActor ref={(actor) => {
         camera.current = actor;
-        if (actor) viewFrom(actor);
+        if (!actor) return;
+        withoutMotionBlur(actor.CameraComponent);
+        viewFrom(actor);
       }} location={location} rotation={rotation} cameraComponent={{ constrainAspectRatio: false }} />
   );
 }
