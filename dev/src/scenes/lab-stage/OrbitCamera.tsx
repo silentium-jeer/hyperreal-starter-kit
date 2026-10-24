@@ -1,7 +1,7 @@
 import * as UE from 'ue';
 import { $ref, $unref } from 'puerts';
 import { useEffect, useRef } from 'react';
-import { captureMouse, releaseMouse } from '../../shared/engine/mouse';
+import { releaseMouse } from '../../shared/engine/mouse';
 import { viewFrom, world } from '../../shared/engine/world';
 import { useFrame } from '../../shared/react';
 import type { Vector3 } from '../../shared/react/props';
@@ -116,9 +116,12 @@ export function OrbitCamera({ location, rotation, focus }: OrbitCameraProps) {
       view.distance *= 1 + dy * DOLLY_PER_PIXEL;
     } else if (down(KEYS.right)) {
       // Fly: the cursor hides and the mouse is captured, as in an editor viewport; it comes back where it was.
-      if (!flying.current) {
+      if (flying.current === undefined) {
         flying.current = lastCursor.current;
-        captureMouse();
+        // Not captureMouse(): it flushes pressed keys (SetInputMode_GameOnly with bFlushInput,
+        // WidgetBlueprintLibrary.cpp), which releases the very right button that started the flight.
+        controller.bShowMouseCursor = false;
+        UE.WidgetBlueprintLibrary.SetInputMode_GameOnly(controller, false);
       }
       controller.GetInputMouseDelta(cursorX, cursorY);
       const [lookX, lookY] = [$unref(cursorX) * FLY_LOOK_DEGREES_PER_UNIT, $unref(cursorY) * FLY_LOOK_DEGREES_PER_UNIT];
