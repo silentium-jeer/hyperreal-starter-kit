@@ -1,7 +1,7 @@
 import * as UE from 'ue';
 import { useEffect, useRef, useState } from 'react';
 import { LabStage } from '../../../../scenes/lab-stage/LabStage';
-import { param, sendToHud, useFrame, useHudMessages } from '../../../../shared/react';
+import { param, useFrame, useHudMessages, useHudState } from '../../../../shared/react';
 import { MANNEQUIN_MESHES } from '../../entities/mannequin';
 
 // Animation graphs written as JSX. A mannequin (a bare skeletal mesh component) whose graph changes shape, and a
@@ -17,7 +17,6 @@ const LINKED = `${ANIMS}/ABP_Unarmed.ABP_Unarmed_C`;
 
 export type Shape = 'clip' | 'blend' | 'machine' | 'blendList' | 'blendByBool' | 'layered' | 'slot' | 'ik' | 'linked';
 
-const HUD_STATE_EVERY_MS = 200;
 // The nodes whose runtime state the HUD shows: the state machine's current state and weights, a blend list's weights.
 const WATCHED_NODE = /(stateMachine|blendList)#([^[(,\s]+)/;
 
@@ -134,13 +133,7 @@ export function Scene() {
     if (message.type === 'animGraph/variable') Object.assign(controls.current, { [String(message.name)]: message.value });
   });
 
-  useEffect(() => {
-    const timer = setInterval(
-      () => sendToHud({ type: 'animGraph/state', shape, characterGraph, extraPose, ...controls.current, ...describe(graph.current) }),
-      HUD_STATE_EVERY_MS,
-    );
-    return () => clearInterval(timer);
-  }, [shape, characterGraph, extraPose]);
+  useHudState('animGraph/state', () => ({ shape, characterGraph, extraPose, ...controls.current, ...describe(graph.current) }));
 
   // Graph variables come from React every frame; the props bound to them (param) and the conditions read them.
   useFrame(() => {

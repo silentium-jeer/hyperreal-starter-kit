@@ -1,26 +1,54 @@
 import * as UE from 'ue';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LabStage } from '../../../../scenes/lab-stage/LabStage';
+import { useHudMessages, useHudState } from '../../../../shared/react';
 import { MANNEQUIN_MESHES, clipPlayer, mannequinClips } from '../../entities/mannequin';
 
 const CLIP_SECONDS = 3;
 
-// The stock Mannequin cycling through the template's unarmed clips, played by name from TS, no Animation Blueprint.
+// The stock Mannequin playing the template's unarmed clips by name from TS, no Animation Blueprint. It cycles
+// through them on its own; its HUD (dev/ui/hud/MannequinLabHud.tsx) picks a clip and stops or resumes the cycle.
 function ClipCycle() {
   const actor = useRef<UE.SkeletalMeshActor>(null);
+  const player = useRef<ReturnType<typeof clipPlayer>>(null);
+  const clips = useRef<Map<string, UE.AnimSequence>>(new Map());
+  const [cycling, setCycling] = useState(true);
+  const [clip, setClip] = useState('idle');
+
   useEffect(() => {
-    const component = actor.current!.SkeletalMeshComponent;
-    const clips = mannequinClips();
-    const look = clipPlayer(component, clips);
-    const names = look.clips();
-    let index = 0;
+    clips.current = mannequinClips();
+    player.current = clipPlayer(actor.current!.SkeletalMeshComponent, clips.current);
+  }, []);
+  useEffect(() => {
+    player.current?.play(clip);
+  }, [clip]);
+  useEffect(() => {
+    if (!cycling) return;
     const timer = setInterval(() => {
-      index = (index + 1) % names.length;
-      look.play(names[index]);
-      console.log(`[mannequin-lab] playing ${names[index]}`);
+      const names = [...clips.current.keys()];
+      setClip((current) => names[(names.indexOf(current) + 1) % names.length]);
     }, CLIP_SECONDS * 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [cycling]);
+
+  useHudMessages((message) => {
+    if (message.type === 'mannequin/clip') {
+      setCycling(false);
+      setClip(String(message.clip));
+    }
+    if (message.type === 'mannequin/cycle') setCycling(Boolean(message.on));
+  });
+  useHudState('mannequin/state', () => {
+    const component = actor.current?.SkeletalMeshComponent;
+    return {
+      clips: [...clips.current.keys()],
+      clip,
+      cycling,
+      time: component ? component.GetPosition() : 0,
+      length: clips.current.get(clip)?.GetPlayLength() ?? 0,
+    };
+  });
+
   return (
     <skeletalMeshActor
       ref={actor}

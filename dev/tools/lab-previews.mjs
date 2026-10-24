@@ -69,7 +69,9 @@ async function capture(id) {
     await waitForScene(scene);
     await sleep(settleMs);
     const requested = Date.now();
-    await evalInGames(`UE.KismetSystemLibrary.ExecuteConsoleCommand(world, 'HighResShot ${CAPTURE.width}x${CAPTURE.height}', null)`);
+    // Only the preview's own game shoots: every game on this dev server answers the eval (the shell's worlds too), and
+    // they all write into the same runtime's Screenshots folder.
+    await evalInGames(`__vge.app?.scene === '${scene}' && UE.KismetSystemLibrary.ExecuteConsoleCommand(world, 'HighResShot ${CAPTURE.width}x${CAPTURE.height}', null)`);
     const png = await waitForScreenshot(requested);
     const target = join(previewsDir, `${id}.webp`);
     await sharp(png).resize({ width: PREVIEW_WIDTH }).webp({ quality: 82 }).toFile(target);

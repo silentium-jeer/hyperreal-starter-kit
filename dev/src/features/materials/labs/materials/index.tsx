@@ -2,12 +2,14 @@ import * as UE from 'ue';
 import { useEffect, useRef, useState } from 'react';
 import { LabStage } from '../../../../scenes/lab-stage/LabStage';
 import { world } from '../../../../shared/engine/world';
+import { useHudMessages, useHudState } from '../../../../shared/react';
 import { instance, type MaterialTuple } from '../../../../shared/material';
 import lava, { cooled } from '../../assets/lava.material';
 
 // Materials written as JSX. A packed cube with the lava material, a sphere of its own (a ref keeps it out of the pack)
-// with a dynamic instance whose values come from React state, and a packed cube with the saved instance. Driven and
-// read from outside through globalThis.materialsLab (node tools/game.mjs "materialsLab.report()").
+// with a dynamic instance whose values come from React state, and a packed cube with the saved instance. A person
+// drives it from its HUD (dev/ui/hud/MaterialsLabHud.tsx: the instance's glow and colour, which material each mesh
+// draws); an agent from outside through globalThis.materialsLab (node tools/game.mjs "materialsLab.report()").
 
 const CUBE = '/Engine/BasicShapes/Cube.Cube';
 const SPHERE = '/Engine/BasicShapes/Sphere.Sphere';
@@ -45,6 +47,12 @@ export function Scene() {
   const [glow, setGlow] = useState(30);
   const [tint, setTint] = useState<MaterialTuple>([0.15, 0.55, 1]);
   const sphere = useRef<UE.StaticMeshComponent>(null);
+
+  useHudMessages((message) => {
+    if (message.type === 'materials/glow') setGlow(Number(message.strength));
+    if (message.type === 'materials/tint' && Array.isArray(message.color)) setTint(message.color as MaterialTuple);
+  });
+  useHudState('materials/state', () => ({ glow, tint, sphere: describeMaterial(sphere.current?.GetMaterial(0)), packed: packedGroups() }));
 
   useEffect(() => {
     const lab = {

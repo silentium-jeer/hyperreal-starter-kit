@@ -1,23 +1,12 @@
 import * as UE from 'ue';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { LabStage } from '../lab-stage/LabStage';
 import { Player } from '../../features/character/entities/Player';
 import { flightCase, LiveAsset, SpinningCubes } from '../../features/demo';
 import { BoxPyramid, Colonnade, SphereRain, Stairs } from '../../features/world';
-import { sendToHud, useFrame, useHudMessages } from '../../shared/react';
+import { useHudMessages, useHudState, useSmoothedFps } from '../../shared/react';
 
-const HUD_STATE_EVERY_MS = 250;
 const DEFAULT_SUN_PITCH = -35;
-
-function useSmoothedFps() {
-  const fps = useRef(0);
-  useFrame((deltaSeconds) => {
-    if (deltaSeconds <= 0) return;
-    const now = 1 / deltaSeconds;
-    fps.current = fps.current ? fps.current * 0.95 + now * 0.05 : now;
-  });
-  return fps;
-}
 
 // The engine's scalability level (0 Low .. 4 Cinematic, -1 when the groups differ), applied for the whole game.
 const qualityLevel = () => UE.GameUserSettings.GetGameUserSettings().GetOverallScalabilityLevel();
@@ -39,13 +28,7 @@ export function Scene() {
     if (message.type === 'main/quality') setQualityLevel(Number(message.level));
   });
 
-  useEffect(() => {
-    const timer = setInterval(
-      () => sendToHud({ type: 'main/state', fps: Math.round(fps.current), sunPitch, raining, quality: qualityLevel() }),
-      HUD_STATE_EVERY_MS,
-    );
-    return () => clearInterval(timer);
-  }, [sunPitch, raining]);
+  useHudState('main/state', () => ({ fps: Math.round(fps.current), sunPitch, raining, quality: qualityLevel() }));
 
   return (
     <>
