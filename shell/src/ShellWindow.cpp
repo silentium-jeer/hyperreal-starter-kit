@@ -628,6 +628,7 @@ void ShellWindow::OpenFab(const std::wstring& Url, bool bNewWindow)
 	// http://127.0.0.1:5173/ -> http://127.0.0.1:5173
 	FabOptions.DevServer = Settings.Url.substr(0, Settings.Url.find(L'/', Settings.Url.find(L"//") + 2));
 	FabOptions.Secret = Settings.Secret;
+	FabOptions.Owner = Window;
 	FabOptions.Log = [this](const std::wstring& Line) { Log(L"%s", Line.c_str()); };
 	FabOptions.OpenInNew = [this](const std::wstring& NewUrl) { OpenFab(NewUrl, true); };
 	FabOptions.OnClosed = [this](FabWindow* Closed)

@@ -33,6 +33,10 @@ public:
 	{
 		// The dev server's origin, http://127.0.0.1:5173.
 		std::wstring DevServer;
+		// The shell window, the Fab window's owner: an owned window stays above its owner, and the shell keeps its
+		// worlds' windows right below itself (Worlds::StackBelow), so a Fab window is never hidden under a world, without
+		// being above every other application's windows.
+		HWND Owner = nullptr;
 		// Proves the calls are the shell's (X-Vge-Shell): the dev server refuses other requests a browser sends.
 		std::wstring Secret;
 		std::function<void(const std::wstring&)> Log;

@@ -193,7 +193,7 @@ void FabWindow::Open(const std::wstring& RequestedUrl)
 	const int Width = std::min<int>(MulDiv(DefaultWidth, Dpi, 96), WorkArea.right - WorkArea.left);
 	const int Height = std::min<int>(MulDiv(DefaultHeight, Dpi, 96), WorkArea.bottom - WorkArea.top);
 	CefWindowInfo WindowInfo;
-	WindowInfo.SetAsPopup(nullptr, PageTitle);
+	WindowInfo.SetAsPopup(Settings.Owner, PageTitle);
 	// A plain native window around the page, like the shell page's own (Alloy) browser: no Chrome toolbar.
 	WindowInfo.runtime_style = CEF_RUNTIME_STYLE_ALLOY;
 	WindowInfo.bounds = CefRect(WorkArea.left + ((WorkArea.right - WorkArea.left) - Width) / 2, WorkArea.top + ((WorkArea.bottom - WorkArea.top) - Height) / 2, Width, Height);
