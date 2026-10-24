@@ -65,6 +65,22 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, log = conso
     return { preferredformat: 'gltf', preferredquality: 'medium', ...(existsSync(settingsFile) ? JSON.parse(readFileSync(settingsFile, 'utf8')) : {}) };
   }
 
+  // A pack that is in the project's Content/<pack> already, or is copied there from a folder that holds
+  // Content/<pack> (the Epic Games Launcher's download of it, VaultCache/<Name>/data): its container is built and
+  // mounted as after Add to Project.
+  async function addPack(pack, from) {
+    if (from) {
+      const source = join(from, 'Content', pack);
+      if (!existsSync(source)) throw new Error(`no Content/${pack} in ${from}`);
+      cpSync(source, join(projectDir, 'Content', pack), { recursive: true });
+    }
+    if (!existsSync(join(projectDir, 'Content', pack))) throw new Error(`no asset pack in Content/${pack}`);
+    ignoreFolder(join(projectDir, 'Content', pack));
+    const built = await new Promise((resolvePromise, reject) => pipeline.enqueuePack(pack, (err, value) => (err ? reject(err) : resolvePromise(value))));
+    broadcast(built.manifest);
+    return { kind: 'pack', pack, contentPath: `/Game/${pack}/`, container: built.manifest.packs[pack].pak };
+  }
+
   async function installPack(entry, downloadUrl, baseUrls, progress) {
     const result = await service.call(
       'fab-install',
@@ -251,5 +267,5 @@ export function createFab({ projectDir, devDir, pipeline, broadcast, log = conso
     }
   }
 
-  return { call, installs: () => installs };
+  return { call, addPack, installs: () => installs };
 }

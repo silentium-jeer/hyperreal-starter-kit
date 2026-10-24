@@ -177,6 +177,8 @@ function evalPlugin() {
 //   POST /__vge/fab/open      {"url":"https://www.fab.com/listings/<id>"}: the shell page opens the Fab window on it
 //                             (ui/shell/fab.ts); answers how many pages heard it
 //   GET  /__vge/fab/installs  every install from the Fab window, with its state and where it landed (tools/fab.mjs)
+//   POST /__vge/fab/pack      {"name":"<Pack>","from":"<folder holding Content/<Pack>>"}: a pack already on disk (the
+//                             launcher's VaultCache download) into Content/<Pack> and its container, as Add to Project
 // Its middleware goes ahead of the lean transport's, which holds a response back until it ends.
 function fabPlugin() {
   return {
@@ -208,6 +210,17 @@ function fabPlugin() {
           server.ws.send({ type: 'custom', event: 'vge:fab-open', data: { url } });
           res.setHeader('content-type', 'application/json');
           res.end(JSON.stringify({ pages: server.ws.clients.size }));
+          return;
+        }
+        if (req.method === 'POST' && path === '/pack') {
+          const { name, from } = await readJson(req);
+          res.setHeader('content-type', 'application/json');
+          try {
+            res.end(JSON.stringify(await fab.addPack(name, from)));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: err.message }));
+          }
           return;
         }
         if (req.method !== 'POST' || path !== '/') {

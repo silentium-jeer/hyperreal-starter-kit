@@ -6,13 +6,15 @@
 //                                          with its link
 //   node tools/fab.mjs open <listing link or id>   the Fab window on that listing (opened if it is not)
 //   node tools/fab.mjs installs                     what was added from the Fab window: state, progress, where it landed
+//   node tools/fab.mjs pack <Pack> [--from <dir>]   a pack already on disk (the launcher's download, VaultCache/<Name>/data)
+//                                                   into Content/<Pack> and its own container, as Add to Project does
 // Needs this kit's dev server and shell (npm run dev, npm run shell). The search goes through the Fab window because
 // fab.com answers only a browser that passed its bot check; when the window shows that check, the user passes it.
 import { chromium } from 'playwright-core';
 import { devServerUrl, ports } from './engine.mjs';
 
 const [command, ...rest] = process.argv.slice(2);
-const VALUED = ['format', 'count'];
+const VALUED = ['format', 'count', 'from'];
 const options = {};
 const positional = [];
 for (let index = 0; index < rest.length; index++) {
@@ -77,11 +79,16 @@ try {
   else if (command === 'open' && positional[0]) {
     await open(listingUrl(positional[0]));
     console.log(`[fab] the Fab window shows ${listingUrl(positional[0])}`);
+  } else if (command === 'pack' && positional[0]) {
+    const response = await fetch(`${devServerUrl()}/__vge/fab/pack`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: positional[0], from: option('from') }) });
+    const answer = await response.json();
+    if (answer.error) throw new Error(answer.error);
+    console.log(JSON.stringify(answer, null, 2));
   } else if (command === 'installs') {
     const response = await fetch(`${devServerUrl()}/__vge/fab/installs`);
     console.log(JSON.stringify(await response.json(), null, 2));
   } else {
-    console.error('usage: node tools/fab.mjs search "<words>" [--free] [--format unreal-engine|gltf|fbx] [--count 10] | open <listing link or id> | installs');
+    console.error('usage: node tools/fab.mjs search "<words>" [--free] [--format unreal-engine|gltf|fbx] [--count 10] | open <listing link or id> | installs | pack <Pack> [--from <dir>]');
     process.exit(1);
   }
 } catch (err) {
