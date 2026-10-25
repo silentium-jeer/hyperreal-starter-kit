@@ -62,6 +62,7 @@
 - Every scene entity/prefab/character/building root scale is always `[1, 1, 1]`; dimensions belong to prefab geometry.
 - Visual object acceptance is valid only after rendered front/side/back inspection in a DEV-only isolated scene (a lab, `npm run play -- --lab <id>`, windowed). A full-level frame never substitutes for this gate.
 - Here: Unreal units are centimetres and Z is up; the shared lab stage (`dev/src/scenes/lab-stage`) owns sun, sky, ground and camera (an orbit camera) for every lab.
+- Read `README.md` in full before any work. Change the first layer that can do the job: game TypeScript, then assets and the content pipeline, then the kit's shared TypeScript and tools, and the kit's C++ last, only when shown necessary from the code and agreed with the user (README, "Which layer to change").
 - A lab is for people as well as agents: it ships with a HUD that shows the subject's live state and controls every case the lab shows, and a captured preview; no on-screen instructions (skill `dev-lab-authoring`, rule 5).
 
 ## Runtime Checks

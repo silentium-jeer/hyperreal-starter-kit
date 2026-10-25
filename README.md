@@ -201,6 +201,28 @@ physics. What changes is where it gets its instructions.
                     └─ Puerts JsEnv ─ Content/JavaScript/vge/bootstrap.js (Vite ModuleRunner)
 ```
 
+## Which layer to change
+
+A game on this kit has four layers. Work in the first one that can do the job, and go down a layer only when the one
+above has been shown, from the code, unable to do it.
+
+1. **The game in TypeScript and React** (`dev/src/features/<your game>`): scenes, mechanics, UI on the HUD page,
+   labs. Almost everything goes here. The engine is reachable from TypeScript through reflection: every class,
+   function and property in `Typing/ue/ue.d.ts`, and every component and actor class as a JSX element
+   (`Typing/ue/ue-jsx.d.ts`). The labs (`npm run shell`, "Labs") show how per-frame motion, instancing, physics,
+   characters, animation graphs and materials are written; start from them.
+2. **Assets and the content pipeline** (Blender or any DCC, `dev/content`): a wrong scale, skeleton, animation unit,
+   pivot or material in an imported file is fixed in the file or in the import step, not in the engine.
+3. **The kit's shared TypeScript and tools** (`dev/src/shared`, `dev/tools`, `dev/server.mjs`): a wrapper every game
+   would need, or a bug in a kit tool. The fix is portable and stays out of game code.
+4. **The kit's C++** (`Source/`, built into the runtime in a profile, README "Profiles"): only for what the three
+   layers above cannot reach, and only after showing in the code why - which function or data is not exposed to
+   reflection, or which engine path requires native code. A C++ change rebuilds the runtime for every kit on the
+   machine; agree it with the user before starting.
+
+Missing content is not a reason to go native: an effect that is not cooked into the game, for example, is built from
+what the game already has (instanced meshes moved every frame, materials from TSX) or brought in as content.
+
 ## Layout
 
 - `Source/VibeGameEngine` - `UVgeGameInstance` runs the gameplay half of `UEngine::LoadMap` on the world
