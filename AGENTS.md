@@ -17,6 +17,28 @@ hot-reloads both. See [README.md](./README.md). Where a rule's mechanics were
 specific to the browser, a **Here:** paragraph says how the rule maps onto this
 kit. The rule numbers are the web kit's numbers, unchanged.
 
+### Before any change: read the README, then pick the layer
+
+Read [README.md](./README.md) in full before the first change: it says how scenes,
+content, labs, materials, animation graphs, profiles and builds work here, and most
+of what an agent sets out to build already exists. Then change the **first layer
+that can do the job**, and go down a layer only when the one above has been shown,
+from the code, unable to do it:
+
+| Layer | Where | What belongs here |
+|---|---|---|
+| 1. Game TypeScript and React | `dev/src/features/<game>`, `dev/ui` | Scenes, mechanics, rules, AI, input, camera, UI on the HUD page, labs, per-frame visuals (instanced meshes moved every frame for rain, dust, debris), anything the engine exposes to reflection: every class, function and property in `Typing/ue/ue.d.ts`, every component and actor class as a JSX element (`Typing/ue/ue-jsx.d.ts`). The labs show how; start from them. |
+| 2. Assets and the content pipeline | the source files (Blender, any DCC), `dev/content`, `dev/vite` | A wrong scale, skeleton, animation unit, pivot or material in an imported file: fixed in the file or in the import step. A new kind of content (a material, a particle effect, a sound): created and cooked by the content service in the editor process and mounted as DLC, the way materials from TSX are (`*.material.tsx`, `VgeMaterialBuilder`), never assembled inside the running game. |
+| 3. The kit's shared TypeScript and tools | `dev/src/shared`, `dev/tools`, `dev/server.mjs` | A wrapper every game would need, or a bug in a kit tool. Portable, kept out of game code. |
+| 4. The kit's C++ | `Source/` (content-service tools in `VibeGameEngineTools`, the game runtime in `VibeGameEngine`), built in a profile | Only what layers 1-3 cannot reach, shown in the code: which function or data is not exposed to reflection, or which engine path needs native code. Every C++ change rebuilds the runtime for every kit on the machine: **agree it with the user before writing it.** |
+
+Not layer 4: content the game does not have yet (bring it in through layer 2 or
+build it from what layer 1 has), an asset that imports wrong (layer 2), a behaviour
+nobody asked for. Measured: agents making a game on this kit spent a night
+rebuilding the runtime for a native particle factory, native window focus, native
+bone inspection and native animation-unit normalization; all of it was reverted,
+and the animation units were then fixed in the asset step without C++.
+
 0. **COMMIT. As soon as a coherent piece works — commit it. Do not wait to be
    asked.** Not at the end of the task, not when the whole feature is finished,
    not "once it is proven": the moment a piece compiles and does something, it
