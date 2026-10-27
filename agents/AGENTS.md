@@ -60,39 +60,40 @@
 - Final placement is explicit authored world coordinates and source-locked dimensions, verified in rendered game-window frames both before and after player mount.
 - Never multiply scene coordinates or transforms to resize/spread a composition. Structures are local-coordinate prefabs moved manually as one unit.
 - Every scene entity/prefab/character/building root scale is always `[1, 1, 1]`; dimensions belong to prefab geometry.
-- Visual object acceptance is valid only after rendered front/side/back inspection in a DEV-only isolated scene (a lab, `npm run play -- --lab <id>`, windowed). A full-level frame never substitutes for this gate.
-- Here: Unreal units are centimetres and Z is up; the shared lab stage (`dev/src/scenes/lab-stage`) owns sun, sky, ground and camera (an orbit camera) for every lab.
+- Visual object acceptance is valid only after rendered front/side/back inspection in a DEV-only isolated scene (a lab opened in the dev session's shell, `npm run open -- labs/<id>`). A full-level frame never substitutes for this gate.
+- Here: Unreal units are centimetres and Z is up; the shared lab stage (`src/scenes/lab-stage`) owns sun, sky, ground and camera (an orbit camera) for every lab.
 - Read `README.md` in full before any work. Change the first layer that can do the job: game TypeScript, then assets and the content pipeline, then the kit's shared TypeScript and tools, and the kit's C++ last, only when shown necessary from the code and agreed with the user (README, "Which layer to change").
 - A lab is for people as well as agents: it ships with a HUD that shows the subject's live state and controls every case the lab shows, and a captured preview; no on-screen instructions (skill `dev-lab-authoring`, rule 5).
 
 ## Runtime Checks
 - The web kit used Playwright for browser/runtime verification instead of HTTP-only checks. Here the three instruments are:
-  - game state as numbers: `node tools/game.mjs "<expr>"` (from `dev/`) against every connected game process;
-  - the HTML UI: `node tools/ui.mjs text | click <css> | select <css> <v> | eval <js> | console` over CDP; for a game's HUD the game must run with `-cefdebug=<port>`, which `npm run play` passes (the kit's HUD port, 9222 in the main kit) for a windowed process; the dev shell's page (`npm run shell`) answers on the kit's shell port (9221 in the main kit, `VGE_CDP=http://127.0.0.1:9221`);
-  - the look: a capture of the rendered game window (AGENTS.md rule 1).
-- Before starting a new dev server, check whether one is already running: one `npm run dev` serves any number of game processes, and `node tools/game.mjs "1"` prints `no Unreal process is connected to the dev server` when no game is attached.
-- `npm run play` starts a detached game process and prints its pid and log path. Close the game processes you started after the task that used them, with `npm run stop` (this kit's processes only), never by process name: other agents' games run under the same name.
+- One dev session: `npm run dev` starts the dev server and the shell together, and the shell is where the human looks. Agents work in that shell: `npm run open -- labs/<id>` (or `-- main`) puts the scene on its screen, and the shell starts its world. Never start a game process of your own by default: `npm run play` is only for what the shell cannot be, a headless (`--headless`) numbers-only run or a release check. Closing the shell ends the session; `npm run shell` opens it again.
+  - game state as numbers: `node vge/tools/game.mjs --scene labs/<id> "<expr>"` (from the kit root) in the world on that scene; without `--scene`, in every connected game process. Each answer names its scene and its HUD's DevTools port;
+  - the HTML UI: `node vge/tools/ui.mjs text | click <css> | select <css> <v> | eval <js> | console` over CDP: a world's HUD on the port `npm run open` and `game.mjs` print (the shell gives world N the kit's HUD port + N - 1, `VGE_CDP=http://127.0.0.1:<port>`); the shell's page on the kit's shell port (9221 in the main kit);
+  - the look: a capture of the rendered world in the shell (AGENTS.md rule 1).
+- Before starting the dev session, check whether one is already running: `node vge/tools/game.mjs "1"` answers from its worlds, and `npm run dev` keeps a shell that is already open.
+- Close what you opened in the shell when the task is done (`npm run open -- main` puts the human's main scene back). A `npm run play` process you started is closed with `npm run stop` (this kit's processes only), never by process name: other agents' games run under the same name.
 - The main checkout is the stable kit: no development happens in it. It only receives finished, verified work merged from a profile. Every feature, research build or experiment is done in its own profile.
 - Assets from Fab: find them with Fab's own search, `npm run fab -- search "<words>" [--free] [--format unreal-engine|gltf|fbx]`, show the user the chosen listing in the shell's Fab window with `npm run fab -- open <listing link>`, and let the user sign in and press Add to Project / Install Plugin there (never press buy, download or sign in for the user); `npm run fab -- installs` then says where it landed: a pack loads by path from `/Game/<Pack>/...` (`onPack`), a model file is imported by its path, a plugin rebuilt the runtime (README, "Fab: assets into the project").
-- Work that changes C++ or needs its own build and tests while others keep using the main kit goes into a profile: `npm run profile -- create <name>` gives a checkout on `profile/<name>` with its own ports and runtime (README, "Profiles"). Run every command from that profile's `dev/`; the ports and the dev server are its own. It goes into the main kit by merging the branch and `npm run build:cpp` there.
+- Work that changes C++ or needs its own build and tests while others keep using the main kit goes into a profile: `npm run profile -- create <name>` gives a checkout on `profile/<name>` with its own ports and runtime (README, "Profiles"). Run every command from that profile's root; the ports and the dev server are its own. It goes into the main kit by merging the branch and `npm run build:cpp` there.
 
 ## Validation
-- Before final delivery after code changes, run the repository's standard validation commands when feasible (from `dev/`):
+- Before final delivery after code changes, run the repository's standard validation commands when feasible (from the kit root):
   - `npm run typecheck`
-  - `npm run build:cpp` — when C++ under `Source/` changed (it also regenerates `Typing/ue`)
-  - `npm run test:agent-tools` — when `.claude/hooks` or `scripts/lib` changed
-- `npm run build` exists and is the release build (`dev/tools/build.mjs`: a Shipping game in `Build/Release` with only the imported models; it needs this kit's dev server stopped), run when the task concerns the release. The kit defines no lint, game test or knip script yet (`dev/package.json`); the web kit's `npm run lint`, `npm run test` and `npm run knip` join this list when the kit adds them.
+  - `npm run build:cpp` — when C++ under `Source/` changed (it also regenerates `unreal/Typing/ue`)
+  - `npm run test:agent-tools` — when `.claude/hooks` changed
+- `npm run build` exists and is the release build (`vge/tools/build.mjs`: a Shipping game in `Build/Release` with only the imported models; it needs this kit's dev server stopped), run when the task concerns the release. The kit defines no lint, game test or knip script yet (`package.json`); the web kit's `npm run lint`, `npm run test` and `npm run knip` join this list when the kit adds them.
 - If validation is blocked or red, report the exact blocker.
 - Do not call a task complete while known failures from the current work remain unresolved.
 
 ## Repository Rules
 - Runtime assets must live near their owning feature/component or shared primitive.
-  - Here: 3D source assets (`.glb`, `.gltf`, `.fbx`) are modules. A model reaches the game only when game code imports it (`import flightCase from '../assets/flight-case.glb'`, `dev/vite/contentAssetsPlugin.mjs`); nothing is picked up from a folder, and the release build (`npm run build`) contains only imported models. The import's default export is the handle that `useContentMesh` / `onAsset` / `onMesh` (`dev/src/shared/engine/content.ts`) take.
+  - Here: 3D source assets (`.glb`, `.gltf`, `.fbx`) are modules. A model reaches the game only when game code imports it (`import flightCase from '../assets/flight-case.glb'`, `vge/vite/contentAssetsPlugin.mjs`); nothing is picked up from a folder, and the release build (`npm run build`) contains only imported models. The import's default export is the handle that `useContentMesh` / `onAsset` / `onMesh` (`src/shared/engine/content.ts`) take.
   - Materials are modules too: a `*.material.tsx` beside its feature describes the graph in JSX (`defineMaterial(<material ...>)`, the engine's expressions as elements, `param()`, `<custom>` HLSL; README, "A material"); game code imports its exports and passes them where a material prop goes (`overrideMaterials={[lava]}`, `instance(lava, {...})` for runtime values). Declare only the `usage` the meshes need; read the result in the game (`[material] ... needs usage`, `[content] ... error:` lines), never by comparing frames.
-  - UI images stay beside the `dev/ui` component that imports them.
-- Do not import production assets directly from a root `assets/` staging folder. Here: never load cooked content by a hard-coded path into `Plugins/VgeLive`; subscribe with the model import's handle.
+  - UI images stay beside the `src/ui` component that imports them.
+- Do not import production assets directly from a root `assets/` staging folder. Here: never load cooked content by a hard-coded path into `unreal/Plugins/VgeLive`; subscribe with the model import's handle.
 - Keep external references, experiments, and throwaway examples out of committed production paths.
-- Use CSS Modules for new component UI unless the project has a stronger local convention. Here: the shell page and the UI kit (`dev/ui/features`, `dev/ui/app`, `dev/ui/shell`) use CSS Modules; the HUD page (`dev/ui/hud.tsx`) has one global `styles.css`.
+- Use CSS Modules for new component UI unless the project has a stronger local convention. Here: the shell page and the UI kit (`src/ui/features`, `src/ui/app`, `src/ui/shell`) use CSS Modules; the HUD page (`src/ui/hud.tsx`) has one global `styles.css`.
 - Prefer isolated features with clear public boundaries for non-trivial product behavior.
 
 ## Memory Policy

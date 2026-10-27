@@ -11,8 +11,8 @@ they were measured, not imagined. The rules themselves apply here without
 exception.
 
 This kit runs Unreal Engine 5.8 as a runtime-only renderer (never the editor);
-game code is TypeScript in `dev/src`, the UI is React in `dev/ui` shown in the
-game through CEF, and one Vite dev server (`dev/server.mjs`) serves and
+game code is TypeScript in `src`, the UI is React in `src/ui` shown in the
+game through CEF, and one Vite dev server (`vge/server.mjs`) serves and
 hot-reloads both. See [README.md](./README.md). Where a rule's mechanics were
 specific to the browser, a **Here:** paragraph says how the rule maps onto this
 kit. The rule numbers are the web kit's numbers, unchanged.
@@ -27,9 +27,9 @@ from the code, unable to do it:
 
 | Layer | Where | What belongs here |
 |---|---|---|
-| 1. Game TypeScript and React | `dev/src/features/<game>`, `dev/ui` | Scenes, mechanics, rules, AI, input, camera, UI on the HUD page, labs, per-frame visuals (instanced meshes moved every frame for rain, dust, debris), anything the engine exposes to reflection: every class, function and property in `Typing/ue/ue.d.ts`, every component and actor class as a JSX element (`Typing/ue/ue-jsx.d.ts`). The labs show how; start from them. |
-| 2. Assets and the content pipeline | the source files (Blender, any DCC), `dev/content`, `dev/vite` | A wrong scale, skeleton, animation unit, pivot or material in an imported file: fixed in the file or in the import step. A new kind of content (a material, a particle effect, a sound): created and cooked by the content service in the editor process and mounted as DLC, the way materials from TSX are (`*.material.tsx`, `VgeMaterialBuilder`), never assembled inside the running game. |
-| 3. The kit's shared TypeScript and tools | `dev/src/shared`, `dev/tools`, `dev/server.mjs` | A wrapper every game would need, or a bug in a kit tool. Portable, kept out of game code. |
+| 1. Game TypeScript and React | `src/features/<game>`, `src/ui` | Scenes, mechanics, rules, AI, input, camera, UI on the HUD page, labs, per-frame visuals (instanced meshes moved every frame for rain, dust, debris), anything the engine exposes to reflection: every class, function and property in `unreal/Typing/ue/ue.d.ts`, every component and actor class as a JSX element (`unreal/Typing/ue/ue-jsx.d.ts`). The labs show how; start from them. |
+| 2. Assets and the content pipeline | the source files (Blender, any DCC), `vge/content`, `vge/vite` | A wrong scale, skeleton, animation unit, pivot or material in an imported file: fixed in the file or in the import step. A new kind of content (a material, a particle effect, a sound): created and cooked by the content service in the editor process and mounted as DLC, the way materials from TSX are (`*.material.tsx`, `VgeMaterialBuilder`), never assembled inside the running game. |
+| 3. The kit's shared TypeScript and tools | `src/shared`, `vge/tools`, `vge/server.mjs` | A wrapper every game would need, or a bug in a kit tool. Portable, kept out of game code. |
 | 4. The kit's C++ | `Source/` (content-service tools in `VibeGameEngineTools`, the game runtime in `VibeGameEngine`), built in a profile | Only what layers 1-3 cannot reach, shown in the code: which function or data is not exposed to reflection, or which engine path needs native code. Every C++ change rebuilds the runtime for every kit on the machine: **agree it with the user before writing it.** |
 
 Not layer 4: content the game does not have yet (bring it in through layer 2 or
@@ -64,17 +64,17 @@ and the animation units were then fixed in the asset step without C++.
    surface that is not the real renderer on the real GPU is never visual
    evidence.
    - **Here:** `npm run play -- --lab <id> --headless` starts `VibeGameEngine.exe` with
-     `-nullrhi` (`dev/tools/play.mjs`): no renderer at all. That process is
+     `-nullrhi` (`vge/tools/play.mjs`): no renderer at all. That process is
      legitimate for one thing only — reading state as numbers with
-     `node tools/game.mjs "<expr>"` (positions, counts, script timings). It shows
+     `node vge/tools/game.mjs "<expr>"` (positions, counts, script timings). It shows
      nothing, and any number that depends on rendering — GPU time, frame pacing,
      Nanite, Lumen, shadows, materials, anything a player sees — is invalid
      there. Never claim that something looks right, or renders, from a
      `-nullrhi` process.
-   - **Visual confirmation happens in a rendered game window** — either the
-     **user** looking at the running game, or you starting `npm run play`
-     (windowed, real GPU; `-- --scene <id>` or `-- --lab <id>` for another scene)
-     and capturing that window. The kit ships no capture tool of its own: any
+   - **Visual confirmation happens in a rendered game window** — the world the
+     dev session's shell shows (`npm run dev` opens it; `npm run open -- labs/<id>`
+     or `npm run open -- main` puts your scene in it), which the **user** sees
+     too, and which you capture. The kit ships no capture tool of its own: any
      screen capture of the `VibeGameEngine` window is the evidence, opened and looked
      at. A real visible window on the real GPU is the correct way to check how
      the scene actually looks. `-nullrhi` is the ban for visual claims; the
@@ -86,7 +86,7 @@ and the animation units were then fixed in the asset step without C++.
    - **For normal hot-reload work, do not run `npm run typecheck`,
      `npm run typings` or `npm run build:cpp` as a routine check.** Keep one
      `npm run dev` running and reuse it: Vite re-runs changed game modules inside
-     every connected game process and hot-reloads `dev/ui` in CEF, and a model
+     every connected game process and hot-reloads `src/ui` in CEF, and a model
      file the game code imports is rebuilt and mounted into the running game by
      the same server when it is saved. Confirm the affected surface in the running game. Run a static
      check when the user asks for it, when diagnosing a concrete compile or
@@ -119,11 +119,12 @@ and the animation units were then fixed in the asset step without C++.
    `dev-lab-authoring` skill: chosen geometry, a fixed cast, the same numbers on
    every run.
 
-   **Here:** a lab is `dev/src/features/<slice>/ui/<id>.lab.ts` (manifest only)
-   plus its body in `dev/src/features/<slice>/labs/<id>/`, found by the glob in
-   `dev/src/app/scenes.ts` and opened in its own process with
-   `npm run play -- --lab <id>` (add `--headless` when the question is answered
-   by numbers alone, rule 1). Its state is read with `node tools/game.mjs`.
+   **Here:** a lab is `src/features/<slice>/ui/<id>.lab.ts` (manifest only)
+   plus its body in `src/features/<slice>/labs/<id>/`, found by the glob in
+   `src/app/scenes.ts` and opened in the dev session's shell with
+   `npm run open -- labs/<id>` (`npm run play -- --lab <id> --headless` only
+   when the question is answered by numbers alone, rule 1). Its state is read
+   with `node vge/tools/game.mjs --scene labs/<id> "<expr>"`.
 
    Why, in numbers from the day this was written. A wave was measured on the
    combat arena to decide whether recast was steering it. Twice in a row the run
@@ -159,8 +160,8 @@ and the animation units were then fixed in the asset step without C++.
       only exception is a task that is literally about comparing frames.
 
    **Here:** when a number is needed, read it from the running game with
-   `node tools/game.mjs "<expr>"` (`UE`, `puerts`, `world`, `gameInstance` in
-   scope; `dev/src/app/debug-seam.ts`) at the point where it first goes wrong,
+   `node vge/tools/game.mjs "<expr>"` (`UE`, `puerts`, `world`, `gameInstance` in
+   scope; `src/app/debug-seam.ts`) at the point where it first goes wrong,
    and the game log (`Saved/Logs/play-<scene>-<time>.log`, written by
    `npm run play`) before any hypothesis.
 
@@ -201,7 +202,7 @@ and the animation units were then fixed in the asset step without C++.
    - Work one intent at a time. After each placement step, capture the **rendered
      game window and look at it** — 100% visual confirmation of every step, no
      "probably fine, moving on". Placement is authored in TypeScript in
-     `dev/src/scenes/<scene>/` and arrives in the running game by hot reload.
+     `src/scenes/<scene>/` and arrives in the running game by hot reload.
    - Think through where each element goes and why *before* writing it. Layout is
      a design decision, not a `for` loop.
    - The web kit's scene-authoring skill is `threejs-scene-authoring`; in this
@@ -230,7 +231,7 @@ and the animation units were then fixed in the asset step without C++.
    - **Here:** the optimizations are the ones a source `.glb` the game code imports
      carries (meshopt, Draco, quantization, WebP/AVIF textures) and the ones the
      content pipeline applies when it cooks and packages (Oodle compression in
-     `dev/content/pipeline.mjs`). The pipeline's decode step rewrites the
+     `vge/content/pipeline.mjs`). The pipeline's decode step rewrites the
      extensions Interchange 5.8 cannot read as plain glTF/PNG before import
      (README, "Content pipeline notes") — that is the consumer being fixed, which
      is exactly what this rule asks for. It is never a reason to strip a source
@@ -272,8 +273,8 @@ and the animation units were then fixed in the asset step without C++.
      that made things worse and by how much, an assumption the code quietly
      violated.
    - **The bench is not evidence.** Captures belong in the git-ignored
-     `wip/<task>/`; the SCRIPT that produced them belongs in `dev/tools/` (where
-     this kit's agent and measurement tools live) or `scripts/`. The test: if
+     `wip/<task>/`; the SCRIPT that produced them belongs in `vge/tools/` (where
+     this kit's agent and measurement tools live). The test: if
      losing it would make a number you wrote down unrepeatable, it is a tool, and
      tools are committed. A whole task's instrument once sat in `wip/` while the
      document quoting it was committed — one `git clean` from turning every
@@ -294,7 +295,7 @@ and the animation units were then fixed in the asset step without C++.
    This rule and the one above are one idea — write the lesson down, and write it
    where it gets read on purpose rather than by accident.
 
-   Measured in the web kit the day this was written, by `scripts/lib/cleanCode.mjs`
+   Measured in the web kit the day this was written, by `.claude/hooks/lib/cleanCode.mjs`
    over its 229 tracked source files: **4 276 of 18 819 non-blank lines were
    comment — 23%**, and the longest file was 980 lines, 45.8% of its non-blank
    lines comment. Nobody chose that. It arrived one reasonable-looking paragraph
@@ -321,9 +322,9 @@ and the animation units were then fixed in the asset step without C++.
    write, so a block is a reason handed back, not an undo — this rule is still
    yours to keep.
 
-   **Here:** the guard and the baseline judge the TypeScript under `dev/src` and
-   `dev/ui` only. The baseline is regenerated with `npm run clean-code:baseline`
-   in `dev/`, and the guard's own tests run with `npm run test:agent-tools`
+   **Here:** the guard and the baseline judge the TypeScript under `src` and
+   `src/ui` only. The baseline is regenerated with `npm run clean-code:baseline`
+   in the kit root, and the guard's own tests run with `npm run test:agent-tools`
    (see [docs/README.md](./docs/README.md)).
 
 7. **NEVER edit or read files through scripts. Total ban, 100%, no exceptions.**

@@ -16,11 +16,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { baselineOf, measureFile } from '../../scripts/lib/cleanCode.mjs'
+import { baselineOf, measureFile } from './lib/cleanCode.mjs'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const GUARD = join(ROOT, '.claude/hooks/clean-code-guard.mjs')
-const ts = createRequire(join(ROOT, 'dev/package.json'))('typescript-api')
+const ts = createRequire(join(ROOT, 'package.json'))('typescript-api')
 const made = []
 
 afterAll(() => {
@@ -77,32 +77,32 @@ describe('the scope the guard judges', () => {
   // The guard used to measure any source file anywhere while the baseline only
   // recorded four directories, so vite.config.ts was hard-blocked on day one
   // with no way to record it. Both now ask the same predicate. In this kit the
-  // scope is dev/src and dev/ui, and both cases read the recorded baseline.
+  // scope is src and src/ui, and both cases read the recorded baseline.
   it('measures a game source file, which the baseline can record', () => {
-    const verdict = run(join(ROOT, 'dev/src/main.ts'))
+    const verdict = run(join(ROOT, 'src/main.ts'))
     expect(verdict.decision).toBeUndefined()
   })
 
   it('judges every file it measures against an entry the baseline could hold', () => {
     const recorded = JSON.parse(readFileSync(join(ROOT, '.claude/clean-code-baseline.json'), 'utf8')).files
-    expect(Object.keys(recorded)).toContain('dev/src/main.ts')
+    expect(Object.keys(recorded)).toContain('src/main.ts')
   })
 })
 
 describe('the verdict', () => {
   it('blocks a new oversized function', () => {
-    const verdict = run(write(sandbox(), 'dev/src/big.ts', oversized))
+    const verdict = run(write(sandbox(), 'src/big.ts', oversized))
     expect(verdict.decision).toBe('block')
     expect(verdict.reason).toContain('big()')
   })
 
   it('says nothing about a file that is inside the limits', () => {
-    expect(run(write(sandbox(), 'dev/src/small.ts', 'export const a = () => 1\n'))).toEqual({})
+    expect(run(write(sandbox(), 'src/small.ts', 'export const a = () => 1\n'))).toEqual({})
   })
 
   it('warns without blocking when a function is only past the target', () => {
     const body = `export function mid() {\n${'  const x = 1\n'.repeat(50)}}\n`
-    const verdict = run(write(sandbox(), 'dev/src/mid.ts', body))
+    const verdict = run(write(sandbox(), 'src/mid.ts', body))
     expect(verdict.decision).toBeUndefined()
     expect(verdict.hookSpecificOutput.additionalContext).toContain('mid()')
   })
@@ -112,7 +112,7 @@ describe('the baseline', () => {
   // The recorded numbers come from measuring the fixture rather than from
   // counting its lines by hand: a hand-written 120 against a measured 122 makes
   // the fixture, not the guard, decide the verdict. It did once, here.
-  const recorded = (name = 'dev/src/big.ts') => {
+  const recorded = (name = 'src/big.ts') => {
     const dir = sandbox()
     write(dir, name, oversized)
     const entry = baselineOf(measureFile(ts, name, oversized))
@@ -124,13 +124,13 @@ describe('the baseline', () => {
 
   it('forgives a file it has recorded', () => {
     const dir = recorded()
-    expect(run(join(dir, 'dev/src/big.ts'), dir).decision).toBeUndefined()
+    expect(run(join(dir, 'src/big.ts'), dir).decision).toBeUndefined()
   })
 
   it('is found under either drive letter, having once been found under only one', () => {
     const dir = recorded()
-    const upper = run(join(dir, 'dev/src/big.ts'), dir)
-    const lower = run(otherCase(join(dir, 'dev/src/big.ts')), dir)
+    const upper = run(join(dir, 'src/big.ts'), dir)
+    const lower = run(otherCase(join(dir, 'src/big.ts')), dir)
     expect(lower.decision).toBeUndefined()
     expect(lower.decision).toBe(upper.decision)
   })
@@ -138,14 +138,14 @@ describe('the baseline', () => {
   // A path that is lowercase throughout cannot tell a case-folded compare from a
   // strict one, so the recorded name here carries capitals of its own.
   it('is found when the recorded name has capitals in it', () => {
-    const dir = recorded('dev/src/BigThing.ts')
-    expect(run(join(dir, 'dev/src/BigThing.ts'), dir).decision).toBeUndefined()
+    const dir = recorded('src/BigThing.ts')
+    expect(run(join(dir, 'src/BigThing.ts'), dir).decision).toBeUndefined()
   })
 
   it('still blocks the recorded file getting worse', () => {
     const dir = recorded()
-    write(dir, 'dev/src/big.ts', `export function big() {\n${'  const x = 1\n'.repeat(200)}}\n`)
-    expect(run(join(dir, 'dev/src/big.ts'), dir).decision).toBe('block')
+    write(dir, 'src/big.ts', `export function big() {\n${'  const x = 1\n'.repeat(200)}}\n`)
+    expect(run(join(dir, 'src/big.ts'), dir).decision).toBe('block')
   })
 })
 
@@ -162,11 +162,11 @@ describe('a gate that cannot measure says so', () => {
   // future version renames the field, the gate must say it stopped measuring
   // rather than pass everything for the rest of the project's life.
   it('does not stay silent when the payload names the path differently', () => {
-    expect(send(JSON.stringify({ tool_input: { path: 'dev/src/a.ts' } })).systemMessage).toContain('not measured')
+    expect(send(JSON.stringify({ tool_input: { path: 'src/a.ts' } })).systemMessage).toContain('not measured')
   })
 
   it('does not stay silent when the file is gone', () => {
-    expect(run(join(ROOT, 'dev/src/this-file-does-not-exist.ts')).systemMessage).toContain('not measured')
+    expect(run(join(ROOT, 'src/this-file-does-not-exist.ts')).systemMessage).toContain('not measured')
   })
 
   it('does not stay silent when the compiler will not resolve', () => {
@@ -174,16 +174,16 @@ describe('a gate that cannot measure says so', () => {
     mkdirSync(join(dir, '.claude/hooks'), { recursive: true })
     const orphan = join(dir, '.claude/hooks/clean-code-guard.mjs')
     copyFileSync(GUARD, orphan)
-    const verdict = run(write(dir, 'dev/src/a.ts', 'export const a = 1\n'), dir, orphan)
+    const verdict = run(write(dir, 'src/a.ts', 'export const a = 1\n'), dir, orphan)
     expect(verdict.systemMessage).toContain('not measured')
     expect(verdict.systemMessage).toContain('typescript')
   })
 
   it('does not stay silent when the baseline is corrupt', () => {
     const dir = sandbox()
-    write(dir, 'dev/src/big.ts', oversized)
+    write(dir, 'src/big.ts', oversized)
     write(dir, '.claude/clean-code-baseline.json', '{ not json')
-    const verdict = run(join(dir, 'dev/src/big.ts'), dir)
+    const verdict = run(join(dir, 'src/big.ts'), dir)
     expect(verdict.systemMessage).toContain('not measured')
     expect(verdict.systemMessage).toContain('baseline')
   })
@@ -192,6 +192,6 @@ describe('a gate that cannot measure says so', () => {
   // legitimate state and must not be reported as a failure to measure.
   it('stays quiet about a baseline that was never written', () => {
     const dir = sandbox()
-    expect(run(write(dir, 'dev/src/small.ts', 'export const a = () => 1\n'), dir)).toEqual({})
+    expect(run(write(dir, 'src/small.ts', 'export const a = () => 1\n'), dir)).toEqual({})
   })
 })

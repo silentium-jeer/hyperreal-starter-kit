@@ -15,8 +15,8 @@ their lifetime in a pool, moving coherently, and shaded for an HDR frame so they
 read without blowing out.
 
 **What the Unreal equivalent would cover:** event-driven particle systems spawned
-from `dev/src` gameplay code, their lifetime owned by the scene scope
-(`dev/src/shared/engine/world.ts`) so a scene switch or reload removes them, and
+from `src` gameplay code, their lifetime owned by the scene scope
+(`src/shared/engine/world.ts`) so a scene switch or reload removes them, and
 their readability judged in a rendered window.
 
 **Until it is ported:** `fixed-tick-gameplay` (event state belongs to the

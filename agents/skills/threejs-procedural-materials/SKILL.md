@@ -18,7 +18,7 @@ only from measured and visual evidence.
 imported materials are instances of Interchange's glTF masters reparented onto
 project copies with skeletal and Nanite usage (README, "Engine notes"), runtime
 tweaks through dynamic material instances (`colored()` in
-`dev/src/shared/engine/world.ts`) — plus the look-development and acceptance
+`src/shared/engine/world.ts`) — plus the look-development and acceptance
 discipline of the web skill applied to Unreal materials, judged in a rendered
 window under the lab stage's lighting.
 

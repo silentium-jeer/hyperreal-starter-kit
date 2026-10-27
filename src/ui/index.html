@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hyperreal Starter Kit</title>
+  </head>
+  <body>
+    <!-- The kit's app (the web-starter-kit's main.tsx), shown by the Hyperreal Starter Kit shell (shell/src). -->
+    <div id="root"></div>
+    <!-- The frameless shell window's own controls (shell/chrome.tsx), over every screen. -->
+    <div id="window-chrome"></div>
+    <!-- Absolute: the same page is served for every react-router path (/, /labs/<id>, /ui-kit/<id>). -->
+    <script type="module" src="/src/ui/main.tsx"></script>
+    <script type="module" src="/src/ui/shell/chrome.tsx"></script>
+  </body>
+</html>

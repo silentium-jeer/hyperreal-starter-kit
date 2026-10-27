@@ -14,10 +14,10 @@ into the Unreal Starter Kit. Source: the web starter kit,
 particles and the surfaces they change (wet, puddled, snow-capped), so the two can
 never disagree.
 
-**What the Unreal equivalent would cover:** a weather state owned in `dev/src`
+**What the Unreal equivalent would cover:** a weather state owned in `src`
 that drives a particle system for the precipitation and global material
 parameters for wetness and accumulation on surfaces, with the state readable
-through `node tools/game.mjs` and forced through the debug seam.
+through `node vge/tools/game.mjs` and forced through the debug seam.
 
 **Until it is ported:** `world-debug-seam` (force the weather state, do not wait
 for it), `visual-verification-gate`.

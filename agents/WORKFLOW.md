@@ -7,7 +7,7 @@
 - `Planning`: split the work into ordered steps with clear ownership.
 - `Design`: produce product, game, narrative, motion, or system source of truth before code when the change is non-trivial.
 - `Implementation`: make scoped code or document changes using existing project patterns.
-- `Verification`: run relevant checks and in-game verification when runtime behavior changed — numbers through `node tools/game.mjs`, the in-game UI through `node tools/ui.mjs`, the look through a capture of the rendered game window (the web kit's "browser verification").
+- `Verification`: run relevant checks and in-game verification when runtime behavior changed — numbers through `node vge/tools/game.mjs`, the in-game UI through `node vge/tools/ui.mjs`, the look through a capture of the rendered game window (the web kit's "browser verification").
 - `Handoff`: summarize what changed, what was verified, and what remains blocked.
 
 ## Handoff Rules

@@ -1,7 +1,7 @@
 # Agent skills
 
 `agents/skills/` is the single source of skills for every agent tool. `.claude/skills`
-and `.codex/skills` are directory links to this folder (`scripts/link-agent-skills.ts`),
+and `.codex/skills` are directory links to this folder (`agents/link-agent-skills.ts`),
 so a skill added here is visible everywhere at once.
 
 The skills come from the web starter kit (three.js / React / Vite). Each one is in
@@ -10,22 +10,23 @@ exactly one of three states.
 ## Ported to this kit
 
 Same name and the same rules as in the web kit; the implementation parts are
-rewritten for Unreal 5.8 runtime + TypeScript (`dev/src`), the React UI
-(`dev/ui`: a game's HUD and the dev shell's page), the Vite dev server, `tools/game.mjs`, `tools/ui.mjs` and the content
-pipeline (models imported by the game code, `dev/content`). Where the kit does not yet have a piece
+rewritten for Unreal 5.8 runtime + TypeScript (`src`), the React UI
+(`src/ui`: a game's HUD and the dev shell's page), the Vite dev server, `tools/game.mjs`, `tools/ui.mjs` and the content
+pipeline (models imported by the game code, `vge/content`). Where the kit does not yet have a piece
 the web skill relied on, the skill says so instead of inventing it.
 
 | Skill | What it maps onto here |
 |---|---|
-| `dev-lab-authoring` | the lab contract in `dev/src/shared/lib/devLab.ts`, the glob registry in `dev/src/app/scenes.ts`, the shared stage `dev/src/scenes/lab-stage`, `npm run play -- --lab <id>`, the shell's lab index (`/labs`, `LabCard`s from `dev/ui/app/labs/labRegistry.ts`), its captured previews (`npm run labs:previews`) |
-| `fsd-ecs-architecture` | the FSD layout of `dev/src`, entities as spawn functions, scope ownership in `dev/src/shared/engine/world.ts` |
+| `dev-lab-authoring` | the lab contract in `src/shared/lib/devLab.ts`, the glob registry in `src/app/scenes.ts`, the shared stage `src/scenes/lab-stage`, `npm run play -- --lab <id>`, the shell's lab index (`/labs`, `LabCard`s from `src/ui/app/labs/labRegistry.ts`), its captured previews (`npm run labs:previews`) |
+| `mixamo-characters` | a character of your own from model and clip files: import lines with `?skeleton=`, `&retarget=`, `?retargetFrom=` (`vge/content/characters.mjs`), the content service's auto-generated IK Rigs and retargeter (`VgeRetargeter.cpp`), `ImportedCharacter`, `<Player look>`, the `mixamo-character`, `mixamo-to-manny` and `custom-player` labs, and what makes imported characters fall apart |
+| `fsd-ecs-architecture` | the FSD layout of `src`, entities as spawn functions, scope ownership in `src/shared/engine/world.ts` |
 | `asset-optimization-pipeline` | `import x from '*.glb'` → decode → import (Nanite) → DLC cook → pak/IoStore → `MountContent` → `onAsset`/`onMesh` |
-| `ui-kit-architecture` | the UI kit `dev/ui/features/ui-kit` (primitives, `preview.tsx`, the `/ui-kit` gallery), the HUD's `bridge.ts` and the `data-hit` input contract |
+| `ui-kit-architecture` | the UI kit `src/ui/features/ui-kit` (primitives, `preview.tsx`, the `/ui-kit` gallery), the HUD's `bridge.ts` and the `data-hit` input contract |
 | `patch9-ui` | the 9-slice technique and its contract; `Patch9Button` / `Patch9Surface` in the UI kit |
 | `mobile-ui-scaling` | the one-scaler rule mapped to game window resolutions; Win64 only, no scaler on the HUD yet |
 | `blender-web-pipeline` | Blender glTF export into the owning feature's `assets/`; web budgets marked as not applying |
 | `visual-verification-gate` | captures of the rendered game window; never a `-nullrhi` process |
-| `world-debug-seam` | `node tools/game.mjs` → `dev/src/app/debug-seam.ts`; no named verbs yet |
+| `world-debug-seam` | `node vge/tools/game.mjs` → `src/app/debug-seam.ts`; no named verbs yet |
 | `task-kickoff-brief` | unchanged process, verification wording for a game window |
 
 ## Copied as is
@@ -66,7 +67,7 @@ Shared conventions (not a skill): `_conventions/`.
 `gameplay-space-composition` (points at the stubs `img2threejs` and
 `threejs-scene-authoring`), `blender-mcp-hand-modeling`, `reference-to-3d`,
 `alpha-atlas-semantic-slicing`, `spriteforge-pipeline`. Their method holds here;
-read a web path in them as "the equivalent place in `dev/src` / `dev/ui`", and a
+read a web path in them as "the equivalent place in `src` / `src/ui`", and a
 headed browser as a rendered game window (AGENTS.md rule 1). `clean-code`'s
 numbers were measured on the web kit's 229 files and say so.
 
@@ -79,7 +80,7 @@ copied and no Unreal content was invented for them.
 
 | Skill | Unreal equivalent would cover |
 |---|---|
-| `threejs-scene-authoring` | hand-authored placement in `dev/src/scenes`, step by step with window captures |
+| `threejs-scene-authoring` | hand-authored placement in `src/scenes`, step by step with window captures |
 | `threejs-scene-architecture` | frame cost: mobility, cached shadows/Lumen invalidation, Nanite, per-frame script work |
 | `threejs-instancing-materials` | instanced meshes, shared material instances |
 | `threejs-image-pipeline` | post-process, exposure, tone mapping, scalability owned by the stage |

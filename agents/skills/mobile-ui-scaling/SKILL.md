@@ -6,10 +6,10 @@ description: >-
   (ScalableContainer: fixed logical targetWidth, transform scale down to fit) and
   fixed phones by a DYNAMIC targetWidth per device class — never by removing the
   scaler, never by per-element transform compensation, never by a second scaling
-  system. This kit targets Win64 and its in-game HUD page (dev/ui/hud.tsx, CEF)
+  system. This kit targets Win64 and its in-game HUD page (src/ui/hud.tsx, CEF)
   has no scaler yet; the rule maps to game window resolutions. MANDATORY whenever a
   panel is "too small / too big / does not scale" at some resolution, when
-  adding a UI scaler, or any responsive work on dev/ui. Trigger on: "UI too small
+  adding a UI scaler, or any responsive work on src/ui. Trigger on: "UI too small
   at 4K", "doesn't scale", "responsive", "resolution", "targetWidth",
   "ScalableContainer", "adaptive UI", "HUD too big", "mobile UI",
   "меню не скейлится".
@@ -22,15 +22,15 @@ description: >-
 - The kit builds and packages for **Win64** only (README, "Build and package").
   There is no phone target, so the web kit's portrait-phone case does not arise
   here.
-- The in-game UI is the HUD page (`dev/ui/hud.html` + `hud.tsx`), empty today,
+- The in-game UI is the HUD page (`src/ui/hud.html` + `hud.tsx`), empty today,
   with one global stylesheet (`styles.css`: box sizing, a transparent full-size
   root). **The HUD has no UI scaler.** The kit has no in-game control for
   resolution or window mode; a game window's size is set when it starts
   (`npm run play -- --width <w> --height <h>`, default 1280×720).
-- The dev shell's page (`dev/ui/main.tsx`) carries the web kit's pieces: the
+- The dev shell's page (`src/ui/main.tsx`) carries the web kit's pieces: the
   `ScalableContainer` package (`@vibegameengine/ui-scaler`) and the shared hook
-  `dev/ui/shared/lib/ui-scale/useResponsiveTargetWidth.ts`; one kit component,
-  `DemoSceneHud` (`dev/ui/features/ui-kit`), uses them, and no page mounts it.
+  `src/ui/shared/lib/ui-scale/useResponsiveTargetWidth.ts`; one kit component,
+  `DemoSceneHud` (`src/ui/features/ui-kit`), uses them, and no page mounts it.
 - What carries over is the rule's shape: when UI must keep its proportions
   across sizes, there is ONE scaling system for the whole page, and the fix for a
   size class that looks wrong is that system's target for that class.
@@ -58,7 +58,7 @@ elements needed a larger target than a sparse one, tuned by eye, not by formula.
 
 **Here:** `ScalableContainer` and `useResponsiveTargetWidth` exist (see above)
 but the HUD does not use them. When the HUD needs to scale with the game
-resolution, wrap the whole page once in `dev/ui/hud.tsx` with that scaler, and
+resolution, wrap the whole page once in `src/ui/hud.tsx` with that scaler, and
 pick the target per resolution class in that one shared hook. Nothing else.
 
 ## Forbidden (the "костыли с обратным scale")
@@ -74,7 +74,7 @@ pick the target per resolution class in that one shared hook. Nothing else.
 
 The game routes the mouse to the page over the rectangles of `data-hit`
 elements, measured with `getBoundingClientRect()` and reported with
-`window.innerWidth` (`dev/ui/bridge.ts`, `reportInteractiveRects`). A CSS
+`window.innerWidth` (`src/ui/bridge.ts`, `reportInteractiveRects`). A CSS
 transform on an ancestor changes those rectangles, and the report follows them
 on the next mutation or resize — so a scaler must not stop that report from
 running (keep it reacting to `resize`), and a change of target is otherwise a
@@ -89,7 +89,7 @@ build or the code.
    compare, so "unchanged" can be checked afterwards.
 2. Use the already-running dev server (`npm run dev`, never restarted for this)
    and a windowed game per size (`npm run play -- --width <w> --height <h>`).
-3. Read the page size with `node tools/ui.mjs eval "[innerWidth, innerHeight]"`
+3. Read the page size with `node vge/tools/ui.mjs eval "[innerWidth, innerHeight]"`
    so each capture is labelled with the size it was taken at.
 4. Capture the game window into `wip/<task>/`, **open the image and look**.
    Verify the smallest and the largest supported resolution AND that the

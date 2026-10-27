@@ -17,7 +17,7 @@
 
 ## This kit
 - The knowledge core, its sources and its examples were measured in a browser harness on the web kit (three.js, React, Chrome). Their mechanisms carry; their instruments do not: a `requestAnimationFrame` recorder, `performance.memory` and the GPU timer-query extension are browser instruments with no counterpart wired into this kit yet.
-- What this kit has today: `node tools/game.mjs` reads any engine value from every connected process; `dev/tools/measure-host.ps1` starts N processes and reports time-to-scene and memory; `dev/tools/measure-hmr.mjs` measures hot-reload latency; the README's "Measured" table records the conditions of each figure.
+- What this kit has today: `node vge/tools/game.mjs` reads any engine value from every connected process; `vge/tools/measure-host.ps1` starts N processes and reports time-to-scene and memory; `vge/tools/measure-hmr.mjs` measures hot-reload latency; the README's "Measured" table records the conditions of each figure.
 - A `-nullrhi` process (`npm run play -- --headless`) has no renderer: no frame-cost, GPU or presentation number from it is valid (AGENTS.md rule 1).
 
 ## Owns

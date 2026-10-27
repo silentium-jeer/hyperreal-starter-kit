@@ -1,9 +1,9 @@
 ---
 name: ui-kit-architecture
 description: >-
-  Build and evolve reusable UI for this kit's HTML/CSS UI (React in dev/ui,
+  Build and evolve reusable UI for this kit's HTML/CSS UI (React in src/ui,
   shown by CEF: a game's HUD over its scene, and the dev shell's page with the
-  UI kit in dev/ui/features/ui-kit). Use when creating or changing reusable UI
+  UI kit in src/ui/features/ui-kit). Use when creating or changing reusable UI
   primitives, menus, HUD controls, dialogs, sliced frames, UI asset placement,
   or when deciding whether a panel should compose shared primitives rather than
   own another copy. Covers who may talk to the game (panels, through bridge.ts),
@@ -15,20 +15,20 @@ description: >-
 
 In the web kit, `features/ui-kit` was an isolated feature that owned reusable
 visual primitives, while screens composed them and owned routing and game
-actions. The same split applies to this kit's UI, which lives in `dev/ui/` and
+actions. The same split applies to this kit's UI, which lives in `src/ui/` and
 is two pages:
 
 - **A game's HUD** — `hud.html` + `hud.tsx`, the page each game process draws
-  over its own scene (`dev/src/app/ui-host.ts` shows it through `UVgeUI`). It
+  over its own scene (`src/app/ui-host.ts` shows it through `UVgeUI`). It
   renders nothing yet; a game puts its own HUD there.
   - `bridge.ts` — the HUD's only channel to the game: `post(message)` sends,
     `onGameMessage(listener)` receives, `inGame()` says whether the CEF binding
     (`window.ue.vge`, `UVgeUI`) exists.
   - `styles.css` — the HUD's stylesheet.
-  - The game side is `dev/src/app/ui-host.ts`; it handles no HUD message yet.
+  - The game side is `src/app/ui-host.ts`; it handles no HUD message yet.
 - **The dev shell's page** — `index.html` + `main.tsx` → `App.tsx` →
   `app/router/AppRouter.tsx`, the web-starter-kit app shown by the C++ shell
-  (`npm run shell`, `shell/src`) under its title bar (`shell/WindowChrome.tsx`:
+  (`npm run shell`, `vge/shell/src`) under its title bar (`shell/WindowChrome.tsx`:
   Main scene / Labs / UI kit). `/` is the main scene and `/labs/<id>` a lab, each
   a game process of its own under `<GameWorld>` (`features/world`); `/labs` is
   the lab index (`app/labs/*`, `app/ui/labs/LabsScreen.*`); `/ui-kit` is the
@@ -44,9 +44,9 @@ The rules below say how primitives are built and composed.
 
 ## Ownership
 
-- A reusable primitive lives in the kit, `dev/ui/features/ui-kit/components/<Name>/`,
+- A reusable primitive lives in the kit, `src/ui/features/ui-kit/components/<Name>/`,
   separate from the screens and panels that use it. It imports only shared UI
-  code (`dev/ui/shared`) and its own files; it never imports a panel, the bridge,
+  code (`src/ui/shared`) and its own files; it never imports a panel, the bridge,
   or game-specific copy.
 - A primitive receives data and callbacks through props. It must not `post()` to
   the game, subscribe to game messages, or decide panel-specific copy.
@@ -83,7 +83,7 @@ Never create an `assets/` bucket merely to store images. Place every UI asset
 beside the narrowest component that imports it:
 
 ```
-dev/ui/<primitive-owner>/
+src/ui/<primitive-owner>/
   MenuButton/
     MenuButton.tsx
     assets/
@@ -106,7 +106,7 @@ dev/ui/<primitive-owner>/
 
 The kit already follows this: `DanceControl`'s frame lives in
 `features/ui-kit/components/DanceControl/assets/`. A game feature's `assets/`
-folder (`dev/src/features/<slice>/assets/`) is not a UI asset folder: a model
+folder (`src/features/<slice>/assets/`) is not a UI asset folder: a model
 file there that game code imports becomes 3D content through the content
 pipeline.
 
@@ -121,12 +121,12 @@ pipeline.
    texture files or atlas coordinates.
 5. Let panels compose the primitive and supply their own game messages.
 6. Give every interactive element a stable `data-testid` (`ui-test-ids`), so
-   `node tools/ui.mjs click '[data-testid="…"]'` finds it by identity.
+   `node vge/tools/ui.mjs click '[data-testid="…"]'` finds it by identity.
 7. Verify in the running game (below).
 
 ## Mandatory isolated visual gate
 
-Never accept a UI component from source inspection, `node tools/ui.mjs text`, a
+Never accept a UI component from source inspection, `node vge/tools/ui.mjs text`, a
 build, or a frame of a desktop browser alone. Opening `/ui/hud.html` directly in
 a desktop browser is fine for iteration — the bridge logs the posts it would have
 sent — but it is not the surface the player sees.
@@ -142,8 +142,8 @@ sent — but it is not the surface the player sees.
   element over the rendered game (`npm run play`, windowed; it passes
   `-cefdebug=9222`, the default endpoint of `tools/ui.mjs`), a shell element in
   the shell's page (DevTools on 9221, `VGE_CDP=http://127.0.0.1:9221`). Drive
-  every state with `node tools/ui.mjs click | select | eval`, read the page
-  console with `node tools/ui.mjs console`, capture the window and look at it.
+  every state with `node vge/tools/ui.mjs click | select | eval`, read the page
+  console with `node vge/tools/ui.mjs console`, capture the window and look at it.
 
 ### Hard gate for composite UI
 

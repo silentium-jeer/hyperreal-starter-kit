@@ -1,29 +1,29 @@
 ---
 name: fsd-ecs-architecture
 description: >-
-  Where every file goes in this kit's dev/src (game TypeScript run by Puerts
-  inside Unreal) and dev/ui (the React UI: a game's HUD and the dev shell's
+  Where every file goes in this kit's src (game TypeScript run by Puerts
+  inside Unreal) and src/ui (the React UI: a game's HUD and the dev shell's
   page), and how to work in it. The
   game code is Feature-Sliced Design (FSD) layers + an ECS-style split inside
   each feature: an ENTITY is a mount function that spawns engine actors through
   shared/engine/world (features/<slice>/entities/*.ts); a COMPONENT is
   per-frame behaviour attached to an entity (everyFrame/every); a SYSTEM is pure
   logic with no `ue` import. MANDATORY before adding, moving, or renaming any
-  file under dev/src or dev/ui — new entity, behaviour, system, scene, lab,
+  file under src or src/ui — new entity, behaviour, system, scene, lab,
   feature, shared helper, UI panel, or asset. Enforces: correct layer placement,
   relative imports, the app/scenes/features/shared layering, scope ownership of
   every engine object, and labs for inspection code. Trigger on: "where do I
   put", "add a feature", "add an entity / component / system", "new scene",
-  "new lab", "new UI panel", "folder structure", "FSD", "ECS", "how is dev/src
+  "new lab", "new UI panel", "folder structure", "FSD", "ECS", "how is src
   organized", "import from another feature".
 ---
 
 # FSD + ECS architecture — what goes where
 
-`dev/src/` is **Feature-Sliced Design layers** on the outside, an **ECS-style
+`src/` is **Feature-Sliced Design layers** on the outside, an **ECS-style
 split** inside each feature — the same layout as the web starter kit (README),
 with the web kit's React/three.js pieces replaced by engine actors spawned from
-TypeScript. `dev/ui/` is separate: the HTML/CSS UI, built by the same Vite server
+TypeScript. `src/ui/` is separate: the HTML/CSS UI, built by the same Vite server
 as a normal browser client and shown in the game through CEF.
 
 ## The ECS mapping
@@ -47,7 +47,7 @@ it can be tested and reasoned about without an engine.
 ## Engine ownership (this kit's invariant)
 
 Everything script code creates in the engine is owned by a scope
-(`dev/src/shared/engine/world.ts`):
+(`src/shared/engine/world.ts`):
 
 - `spawn(cls, location, rotation?, scale?, setup?)` and `meshActor(...)` record
   the actor in the **scene** scope;
@@ -63,19 +63,19 @@ and becomes a ghost. Gameplay that engine systems consume every frame runs in
 
 Content from a model file is never loaded by a cooked path: import the file and
 subscribe with its handle through `onAsset` / `onMesh`
-(`dev/src/shared/engine/content.ts`) or `useContentMesh` / `useContentAsset`
-(`dev/src/shared/react/content.ts`), which call back with every new build.
+(`src/shared/engine/content.ts`) or `useContentMesh` / `useContentAsset`
+(`src/shared/react/content.ts`), which call back with every new build.
 
 ## The FSD layers (outer structure)
 
 ```
-dev/src/
+src/
   main.ts             # dev entry: React Fast Refresh, the debug seam, then the program
-  release.ts          # release entry (`npm run build` -> Content/JavaScript/vge/game.js): globals, then the program
+  release.ts          # release entry (`npm run build` -> unreal/Content/JavaScript/vge/game.js): globals, then the program
   app/
     program.ts        # the program: UI host, then the scene named by -Scene= (default main)
     scenes.ts         # scene router: "main" + every lab from the glob registry; openScene()
-    ui-host.ts        # game side of the HUD page (shows dev/ui/hud.html through UVgeUI)
+    ui-host.ts        # game side of the HUD page (shows src/ui/hud.html through UVgeUI)
     debug-seam.ts     # expression evaluation for agents (tools/game.mjs)
   scenes/
     main/             # the main scene: the composition root, deep-imports feature entities
@@ -85,12 +85,12 @@ dev/src/
   shared/
     engine/           # world.ts (scopes, spawn helpers, viewFrom), content.ts (content builds)
     lib/              # cross-feature primitives; devLab.ts (the lab contract)
-dev/ui/               # HTML/CSS UI (React): a game's HUD (hud.html, hud.tsx, bridge.ts, styles.css)
+src/ui/               # HTML/CSS UI (React): a game's HUD (hud.html, hud.tsx, bridge.ts, styles.css)
                       # and the dev shell's page (main.tsx, App.tsx, app/, features/, shell/, shared/)
 ```
 
 `features/<slice>/ui/` holds **lab manifests** (`<id>.lab.ts`), not screens: the
-web kit's screens are the HTML UI in `dev/ui` here.
+web kit's screens are the HTML UI in `src/ui` here.
 
 **Dependency direction (never violate):** `app → scenes → features → shared`.
 `shared/` imports nothing above it. Scenes may deep-import feature entities (they
@@ -110,17 +110,17 @@ mounted by labs (`dev-lab-authoring`); nothing else in a feature imports a scene
 | A playable scene | `scenes/<name>/index.ts` (default export builds it) + an entry in the `scenes` list in `app/scenes.ts` | Only `main` is listed by hand today; labs come from the glob. |
 | An engine-facing helper every layer needs | `shared/engine/` | Spawning, scopes, content, views. |
 | A primitive used by ≥2 features | `shared/lib/` | Only promote once a second consumer exists. |
-| An in-game HUD element | the HUD page, `dev/ui/hud.tsx` (empty today), composed from `dev/ui/features/ui-kit` primitives | Hears the game through `onGameMessage`, acts through `post()` (`dev/ui/bridge.ts` ↔ `UVgeUI`); elements that take the mouse carry `data-hit`. The game side is `app/ui-host.ts`, which handles no message yet. |
+| An in-game HUD element | the HUD page, `src/ui/hud.tsx` (empty today), composed from `src/ui/features/ui-kit` primitives | Hears the game through `onGameMessage`, acts through `post()` (`src/ui/bridge.ts` ↔ `UVgeUI`); elements that take the mouse carry `data-hit`. The game side is `app/ui-host.ts`, which handles no message yet. |
 | A 3D source asset | `features/<slice>/assets/<name>.glb` (`.gltf`, `.fbx`), beside the feature that owns it | A module: reaches the game only when code imports it (`import model from '../assets/<name>.glb'`); its default export is the handle `useContentMesh` / `onAsset` take. Never a detached asset bucket. |
-| A UI image | beside the `dev/ui` component that imports it | Never a detached asset bucket. |
-| A C++ type the scripts need | `Source/VibeGameEngine`, then `npm run build:cpp` | Regenerates `Typing/ue`, which the scripts compile against. |
+| A UI image | beside the `src/ui` component that imports it | Never a detached asset bucket. |
+| A C++ type the scripts need | `unreal/Source/VibeGameEngine`, then `npm run build:cpp` | Regenerates `unreal/Typing/ue`, which the scripts compile against. |
 
 ## Import rules
 
 - **Relative imports only** — there are no path aliases (`@/…`).
 - Engine modules: `import * as UE from 'ue'` and `puerts` (`$ref`, `$unref`), typed
-  by the generated `Typing/ue` (`npm run typings`, git-ignored) and
-  `Plugins/Puerts/Typing/puerts` (`dev/tsconfig.json`).
+  by the generated `unreal/Typing/ue` (`npm run typings`, git-ignored) and
+  `unreal/Plugins/Puerts/Typing/puerts` (`tsconfig.json`).
 - **Cross-slice imports are deep and explicit or through the barrel.** A scene
   imports a feature's public entities from its `index.ts`
   (`scenes/main` imports `mountFlightCase`, `mountSpinningCubes` from
@@ -155,8 +155,8 @@ Never trust a typecheck alone (AGENTS.md rule 1). During the work let hot reload
 apply each change to the running game (`npm run dev`, one server, any number of
 game processes) and look at the affected scene or lab in a rendered window
 (`npm run play`, `-- --lab <id>`). Before final delivery run
-`npm run typecheck` from `dev/`; it compiles `src`, `runner` and `ui` against the
-generated typings, so run `npm run typings` first if `Typing/ue` is missing or
+`npm run typecheck` from the kit root; it compiles `src` and `vge/runner` against the
+generated typings, so run `npm run typings` first if `unreal/Typing/ue` is missing or
 the C++ changed (`npm run build:cpp` regenerates it). A red typecheck may be
 pre-existing: confirm an error is not yours (unchanged file ⇒ pre-existing)
 before acting on it.

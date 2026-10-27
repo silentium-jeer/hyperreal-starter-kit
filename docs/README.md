@@ -17,6 +17,7 @@ written again, labelled as kit lessons.
 |---|---|
 | [../README.md](../README.md) | the kit reference: architecture, layout, agent tools, run, build and package, engine and content-pipeline notes, measured numbers |
 | [workflow.md](./workflow.md) | the dev loop: one-time setup, a session, the edit loop, seeing and measuring, delivery, packaging |
+| [live-scene-editing.md](./live-scene-editing.md) | design: editing a running scene in place with every change written back into its TSX, and keeping one scene open across hot reloads |
 | [../AGENTS.md](../AGENTS.md) | absolute rules for agents, with the incidents behind them |
 | [../agents/AGENTS.md](../agents/AGENTS.md) | roles, routing, runtime checks, validation, repository rules |
 | [../agents/WORKFLOW.md](../agents/WORKFLOW.md) | task lifecycle and handoff |
@@ -27,7 +28,7 @@ written again, labelled as kit lessons.
 ### Skill links
 
 `.claude/skills` and `.codex/skills` are directory junctions to `agents/skills`,
-created by `node scripts/link-agent-skills.ts` (run from anywhere; it resolves the
+created by `node agents/link-agent-skills.ts` (run from anywhere; it resolves the
 repository root from its own location). It needs Node with TypeScript type
 stripping (22.6 or later; 23.6 prints an experimental warning). Junctions need no
 administrator rights. Both links are machine-local and belong in `.gitignore`.
@@ -39,7 +40,7 @@ administrator rights. Both links are machine-local and belong in `.gitignore`.
 - `PreToolUse` → `.claude/hooks/block-destructive-git.mjs` (AGENTS.md rule 2).
 - `PostToolUse` → `.claude/hooks/clean-code-guard.mjs` (AGENTS.md rule 6a,
   `agents/skills/clean-code`). It judges `.ts`/`.tsx`/`.js`/`.mjs`… files under
-  `dev/src` and `dev/ui` only.
+  `src` and `src/ui` only.
 
 ### Clean-code baseline
 
@@ -50,22 +51,22 @@ function over 80 lines, none over 500 lines. Regenerate it after a real cleanup,
 never to make a complaint go away:
 
 ```bash
-cd dev && npm run clean-code:baseline
+npm run clean-code:baseline
 ```
 
-It lists the tracked files with `git ls-files`, measures those under `dev/src` and
-`dev/ui`, and writes the baseline.
+It lists the tracked files with `git ls-files`, measures those under `src` and
+`src/ui`, and writes the baseline.
 
-**TypeScript for the measurement.** `scripts/lib/cleanCode.mjs` parses source with
+**TypeScript for the measurement.** `.claude/hooks/lib/cleanCode.mjs` parses source with
 the classic compiler API (`createSourceFile`, comment ranges, `SyntaxKind`).
-TypeScript 7, which `dev/` type-checks with, ships no such API, so the guard, the
+TypeScript 7, which the kit type-checks with, ships no such API, so the guard, the
 baseline script and the tests load `typescript-api`: TypeScript 6.0.3 under an npm
-alias in `dev/package.json`.
+alias in `package.json`.
 
-**The tests** (`.claude/hooks/*.test.mjs`, `scripts/lib/cleanCode.test.mjs`) run
+**The tests** (`.claude/hooks/*.test.mjs`, `.claude/hooks/lib/cleanCode.test.mjs`) run
 from the repository root, because the destructive-git suite starts the hook by its
 path relative to the root:
 
 ```bash
-cd dev && npm run test:agent-tools
+npm run test:agent-tools
 ```

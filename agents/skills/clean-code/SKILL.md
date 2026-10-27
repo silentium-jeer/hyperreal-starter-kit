@@ -15,7 +15,7 @@ one of them the repository does not currently meet, and says that too.
 `@important` — written only when the user explicitly allowed that comment — and
 tooling directives such as `@ts-expect-error` or `eslint-disable`.
 
-The state that produced these rules, measured by `scripts/lib/cleanCode.mjs` over
+The state that produced these rules, measured by `.claude/hooks/lib/cleanCode.mjs` over
 the 229 tracked source files the day they were written: 14 543 lines of code and
 **4 276 lines of comment — 23% of every non-blank line**. The longest file was
 980 lines, 45.8% of its non-blank lines comment. Nobody decided that; it accrued

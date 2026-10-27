@@ -6,9 +6,9 @@ description: >-
   process). MANDATORY before creating a new lab, giving a feature "somewhere to
   look at it", or touching an existing lab's stage, manifest, or registration.
   Enforces the four rules: a lab exports nothing but its manifest
-  (dev/src/features/<slice>/ui/<id>.lab.ts), a lab mounts the shared lab stage
-  (dev/src/scenes/lab-stage) instead of spawning its own sun/sky/ground/camera,
-  every lab is found by the glob registry in dev/src/app/scenes.ts, and the lab
+  (src/features/<slice>/ui/<id>.lab.ts), a lab mounts the shared lab stage
+  (src/scenes/lab-stage) instead of spawning its own sun/sky/ground/camera,
+  every lab is found by the glob registry in src/app/scenes.ts, and the lab
   index shows every lab. Trigger on: "add a lab", "isolated demo", "somewhere to
   test this", "tuning bench", "inspection scene", "--lab", "-Scene=labs/",
   "lab stage", "defineLab", "why does every lab look different".
@@ -22,14 +22,14 @@ gate is satisfied on before a feature is integrated, and the bench a system is
 tuned on afterwards.
 
 In this kit a lab is opened two ways: from the dev shell (`npm run shell`, the
-C++ shell in `shell/src`), whose page lists the labs at `/labs` and shows one at
+C++ shell in `vge/shell/src`), whose page lists the labs at `/labs` and shows one at
 `/labs/<id>` as its own game process under `<GameWorld>`
-(`dev/ui/features/world`); or in its own process from the command line —
+(`src/ui/features/world`); or in its own process from the command line —
 `npm run play -- --lab <id>` (same as `--scene labs/<id>`, a window on the real
 GPU) or `npm run play -- --lab <id> --headless` (`-nullrhi`, numbers only;
 AGENTS.md rule 1). Every one of them is a game process started with
 `-Scene=labs/<id>`, which opens the scene through `openScene` in
-`dev/src/app/scenes.ts`.
+`src/app/scenes.ts`.
 
 Labs are the most-copied code in a game repo: the next lab is always written by
 opening the last one and changing the middle. That is fine — and it is exactly
@@ -37,7 +37,7 @@ why the *outside* of a lab must be fixed and boring. If every author invents the
 lighting, the ground and the camera, the copy carries the invention forward, and
 within a dozen labs no two are the same shape.
 
-## The contract (dev/src/shared/lib/devLab.ts)
+## The contract (src/shared/lib/devLab.ts)
 
 ```ts
 // features/<slice>/ui/<id>.lab.ts — the manifest, and the only file outside the lab that names it
@@ -70,9 +70,9 @@ export function Scene() {
 
 `DevLabCategory` is `'ai' | 'character' | 'combat' | 'gear' | 'meta' | 'render' | 'world'`.
 `load` resolves to a `SceneModule`. A lab exports `Scene`, a React component the scene renderer
-(`dev/src/shared/react`) turns into actors and components; edits to it apply with React Fast Refresh, and
+(`src/shared/react`) turns into actors and components; edits to it apply with React Fast Refresh, and
 everything it declares is removed when another scene opens. A module that exports `default` instead builds
-the scene imperatively through `dev/src/shared/engine/world.ts` (`spawn`, `every`, `everyFrame`, `own`); new
+the scene imperatively through `src/shared/engine/world.ts` (`spawn`, `every`, `everyFrame`, `own`); new
 labs are React.
 
 ## The four rules
@@ -97,7 +97,7 @@ Why this is a hard rule and not a preference:
 - In the web kit a lab route was stripped from production builds, and an import
   from production code defeated the stripping. This kit now has a release
   bundle of game code (`npm run build` bundles `src/release.ts` into
-  `Content/JavaScript/vge/game.js`), but it does not strip labs yet: the
+  `unreal/Content/JavaScript/vge/game.js`), but it does not strip labs yet: the
   registry glob in `scenes.ts` is not gated. The rule holds anyway, because
   whatever production imports from a lab ships with it, and so does every model
   that lab imports.
@@ -126,7 +126,7 @@ list can find it"; a test imports a lab fixture.
 ### 2. A lab starts from the SHARED lab stage
 
 There is one shared stage, `<LabStage>` in
-`dev/src/scenes/lab-stage/LabStage.tsx`, that owns the parts every lab needs and no
+`src/scenes/lab-stage/LabStage.tsx`, that owns the parts every lab needs and no
 lab should be choosing: the sun (a movable `DirectionalLight` driving the
 atmosphere), the `SkyAtmosphere`, the `ExponentialHeightFog` that fills the sky
 below the horizon, the real-time-capture `SkyLight`, the collidable ground (a thin
@@ -171,10 +171,10 @@ Each lab declares one manifest — a stable id, a title, a one-line description 
 what the lab proves, its category, and a lazy loader for its body. The registry
 collects those manifests automatically —
 `import.meta.glob('../features/*/ui/*.lab.ts', { eager: true })` in
-`dev/src/app/scenes.ts`, not a hand-maintained list — and **the scene list is
+`src/app/scenes.ts`, not a hand-maintained list — and **the scene list is
 built from the registry**: every lab becomes the scene `labs/<id>`. The shell
 page reads the same manifests with its own glob
-(`dev/ui/app/labs/labRegistry.ts`), so the lab index and the `/labs/<id>` routes
+(`src/ui/app/labs/labRegistry.ts`), so the lab index and the `/labs/<id>` routes
 come from them too, never from a hand-written list.
 
 - **No hand-registration.** A per-lab entry copied into `scenes.ts` is how a repo
@@ -188,7 +188,7 @@ come from them too, never from a hand-written list.
   time. This kit's release bundle (`npm run build`) does not gate it yet; when
   the gate is added, it goes on the glob in `scenes.ts`, once. (The shell page
   already gates its lab subtree in one place: the `__SHOWCASE_SURFACES__`
-  dynamic import in `dev/ui/app/router/AppRouter.tsx`.)
+  dynamic import in `src/ui/app/router/AppRouter.tsx`.)
 - **The manifest is metadata, not an API.** It carries strings and a loader. It
   must not export the lab's entities, systems, or fixtures — that would be rule 1
   with extra steps.
@@ -209,14 +209,14 @@ script that drove the index's own registry, committed with the lab, and
 re-captured when the lab's look changed. A missing picture had to look missing.
 
 **Here:** the index is the shell page's `/labs` route (`npm run shell`; the
-title bar's "Labs"), `LabsScreen` in `dev/ui/app/ui/labs/LabsScreen.tsx`: the
-labs grouped by category, one `LabCard` (`dev/ui/features/ui-kit`) per lab with
+title bar's "Labs"), `LabsScreen` in `src/ui/app/ui/labs/LabsScreen.tsx`: the
+labs grouped by category, one `LabCard` (`src/ui/features/ui-kit`) per lab with
 its title and description, and a filter. A card links to `/labs/<id>`, which
 shows the lab as its own game process under `<GameWorld>`. `labRegistry.ts`
-attaches a preview by file name from `dev/ui/app/ui/labs/previews/<id>.webp`,
+attaches a preview by file name from `src/ui/app/ui/labs/previews/<id>.webp`,
 and a card without one shows that it is missing. `npm run labs:previews [<id>...]`
-(`dev/tools/lab-previews.mjs`, with `npm run dev` running) walks the same
-manifests (`dev/src/features/*/ui/*.lab.ts`), starts each lab as a rendered
+(`vge/tools/lab-previews.mjs`, with `npm run dev` running) walks the same
+manifests (`src/features/*/ui/*.lab.ts`), starts each lab as a rendered
 1600×900 game window, waits for its scene, lets it settle (`--settle <s>`, 6 by
 default), takes `HighResShot` and writes the 960 px webp. The web kit's rule holds
 unchanged: a real captured frame of that lab from a rendered window (never a
@@ -227,7 +227,7 @@ when its look changes, and a missing one visibly missing.
 
 A lab ships with the kit: people open it from the shell's index to see what the
 kit can do and to play with it. A lab that only an agent can read through
-`node tools/game.mjs` is unfinished, however correct its numbers are. Before
+`node vge/tools/game.mjs` is unfinished, however correct its numbers are. Before
 writing the lab, decide what a person needs to understand the subject in a minute
 and to control it:
 
@@ -247,13 +247,13 @@ and to control it:
   subject.
 
 How: the lab sends its state to the HUD a few times a second with `sendToHud`
-and takes commands with `useHudMessages` (`dev/src/shared/react/hud.ts`); its
-panels live in `dev/ui/hud/<Lab>Hud.tsx`, are mounted in `dev/ui/hud.tsx`, read
+and takes commands with `useHudMessages` (`src/shared/react/hud.ts`); its
+panels live in `src/ui/hud/<Lab>Hud.tsx`, are mounted in `src/ui/hud.tsx`, read
 the state with `useGameState('<lab>/state')` (they leave when the lab does), and
 are built from the UI kit's `ControlPanel`, `ControlChoice`, `ControlSlider`,
 `ControlButton`. The animation graph lab (`AnimGraphLabHud.tsx`) is the example.
 
-The stage's camera is an orbit camera (`dev/src/scenes/lab-stage/OrbitCamera.tsx`,
+The stage's camera is an orbit camera (`src/scenes/lab-stage/OrbitCamera.tsx`,
 the editor viewport camera of Unity's Scene view): drag orbits around the
 subject, middle drag pans, the wheel zooms, holding the right button flies with
 WASD. A lab gives it a starting view with `LabStage camera={{ location, rotation,
@@ -263,7 +263,7 @@ focus? }}`; only a lab with its own camera (a player's) passes `camera={null}`.
 
 **A lab owns:** its subject on the shared stage; the drivers that move it
 (a turntable in `useFrame`, a clip cycle in a `useEffect` timer); a readout of whatever
-numbers the tuning produces (the game log, or a value `node tools/game.mjs` can
+numbers the tuning produces (the game log, or a value `node vge/tools/game.mjs` can
 read); its own fixture data (an arena, a pose, a sample set); and the manifest
 copy that explains it.
 
@@ -285,7 +285,7 @@ you what happens when you move a value away from nothing.
 
 **Content in a lab is live.** A lab that shows a model imports the file
 (`import flightCase from '../../assets/flight-case.glb'`) and reads the handle
-with `useContentMesh` / `useContentAsset` (`dev/src/shared/react/content.ts`), so
+with `useContentMesh` / `useContentAsset` (`src/shared/react/content.ts`), so
 saving the source file rebuilds it and re-renders the running lab with the new
 version (the `flight-case` lab does this). Never load a cooked path by hand.
 
@@ -335,8 +335,8 @@ Two anti-patterns, both of which look reasonable on the day:
   `-Scene=labs/<id>` in scripts and notes, a scene remembered across a full
   reload). Grep the repository for the old id in the same change.
 - Labs are driven by scripts more than any other surface. Any UI control a lab
-  adds to `dev/ui` carries a `data-testid` — see `ui-test-ids` — so
-  `node tools/ui.mjs click '[data-testid="…"]'` finds it by identity, not by
+  adds to `src/ui` carries a `data-testid` — see `ui-test-ids` — so
+  `node vge/tools/ui.mjs click '[data-testid="…"]'` finds it by identity, not by
   label text.
 
 ## Acceptance

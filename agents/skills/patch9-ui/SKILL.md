@@ -2,7 +2,7 @@
 name: patch9-ui
 description: >-
   Build, slice, and repair framed game UI (9-slice / Patch9 frames and buttons)
-  in this kit's HTML UI (dev/ui, React, shown by CEF: a game's HUD over its
+  in this kit's HTML UI (src/ui, React, shown by CEF: a game's HUD over its
   scene, and the dev shell's page). Use
   whenever creating or changing a HUD, main menu, modal, panel, framed button,
   UI atlas crop, or an overlay element that must stay clickable over the game.
@@ -14,9 +14,9 @@ description: >-
 
 Every framed button and panel is drawn by one isolated renderer,
 `Patch9Button` / `Patch9Surface` in the UI kit
-(`dev/ui/features/ui-kit/components/Patch9Button/`, drawing through
-`dev/ui/shared/lib/patch9/patch9ImageRenderer.ts`, config type `Patch9Config` in
-`dev/ui/shared/lib/patch9/Patch9.types.ts`), ported from the web kit; screens
+(`src/ui/features/ui-kit/components/Patch9Button/`, drawing through
+`src/ui/shared/lib/patch9/patch9ImageRenderer.ts`, config type `Patch9Config` in
+`src/ui/shared/lib/patch9/Patch9.types.ts`), ported from the web kit; screens
 compose it without owning image or inset details. Its isolated look is its
 `preview.tsx` in the gallery (`/ui-kit`). The rules below are the technique and
 its contract. Every framed element reuses this renderer; never recreate 9-slice
@@ -24,14 +24,14 @@ drawing inside a panel.
 
 ## Workflow
 
-1. Before adding files under `dev/ui`, load `ui-kit-architecture`; before adding
-   files under `dev/src`, load `fsd-ecs-architecture`.
-2. A panel lives in its page (`dev/ui/hud.tsx` for a game's HUD) and owns its
+1. Before adding files under `src/ui`, load `ui-kit-architecture`; before adding
+   files under `src`, load `fsd-ecs-architecture`.
+2. A panel lives in its page (`src/ui/hud.tsx` for a game's HUD) and owns its
    game messages; a reusable framed control lives with the UI primitives in
-   `dev/ui/features/ui-kit/components/`. Keep a UI image next to the component
+   `src/ui/features/ui-kit/components/`. Keep a UI image next to the component
    that imports it (for example `MenuButton/assets/` for button states,
    `MenuPanel/assets/` for panel art; the kit's `DanceControl/assets/`). Never put
-   UI art in a game feature's `assets/` folder under `dev/src` — a model file
+   UI art in a game feature's `assets/` folder under `src` — a model file
    there that game code imports becomes 3D content.
 3. Cut an atlas into one transparent PNG per reusable state: normally default
    button, active button, disabled button, and panel. Never import runtime UI
@@ -94,7 +94,7 @@ scale.
 ## Make an overlay clickable
 
 The HUD page is a transparent overlay; **the game routes the mouse to the page
-only over elements marked `data-hit`** (`dev/ui/bridge.ts` reports their
+only over elements marked `data-hit`** (`src/ui/bridge.ts` reports their
 rectangles to the game). The web kit restored `pointer-events: auto` inside a
 scaler that disabled them; here the equivalent is `data-hit`:
 
@@ -110,7 +110,7 @@ scaler that disabled them; here the equivalent is `data-hit`:
 ## First reveal
 
 The shell's page keeps its bootstrap overlay (`BootstrapGate`,
-`dev/ui/features/bootstrap`) up until every mounted Patch9 canvas image has been
+`src/ui/features/bootstrap`) up until every mounted Patch9 canvas image has been
 generated (`useReportInitialRenderReady` → `waitForPatch9ImagesReady`), so no
 frame shows an unframed button. The HUD page has no bootstrap overlay; the
 requirement still holds there: a framed element must never appear for a frame
@@ -133,14 +133,14 @@ without its art. Show it when its slices are ready.
 1. With `npm run dev` running, start the game windowed: `npm run play` (it passes
    `-cefdebug=9222`). For an element of the shell's page, `npm run shell` (its
    page answers on 9221: `VGE_CDP=http://127.0.0.1:9221`).
-2. Drive the element with `node tools/ui.mjs click '<css>'`,
-   `node tools/ui.mjs select '<css>' <value>`, `node tools/ui.mjs eval '<js>'`,
-   and read the page console with `node tools/ui.mjs console`.
+2. Drive the element with `node vge/tools/ui.mjs click '<css>'`,
+   `node vge/tools/ui.mjs select '<css>' <value>`, `node vge/tools/ui.mjs eval '<js>'`,
+   and read the page console with `node vge/tools/ui.mjs console`.
 3. Capture the window and inspect panel corners and seams; repeat at the
    smallest and the largest supported resolution
    (`npm run play -- --width <w> --height <h>`).
 4. Click every button, including keyboard focus/Enter. Confirm the click reached
-   the game (its log line or a `node tools/game.mjs` number) and that no
+   the game (its log line or a `node vge/tools/game.mjs` number) and that no
    backdrop, scrim or decorative layer intercepts it.
 5. Run `npm run typecheck` before final delivery; report pre-existing failures
    separately from the UI change.

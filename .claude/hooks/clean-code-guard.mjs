@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url'
 // root made the gate stop measuring, silently, whenever CLAUDE_PROJECT_DIR
 // pointed at a subdirectory.
 const here = resolve(import.meta.dirname, '../..')
-const root = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
+const root = process.argv[2] ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
 
 // A silent exit 0 and a clean measurement look identical downstream, so every
 // path that gives up says why. Otherwise the day the payload shape changes, the
@@ -42,17 +42,18 @@ try {
 
 const path = payload?.tool_response?.filePath || payload?.tool_input?.file_path || ''
 if (!path) giveUp('the tool payload carried no file path')
+if (process.argv[2] && !resolve(path).toLowerCase().startsWith(`${resolve(root).toLowerCase()}\\`)) process.exit(0)
 
 let clean
 let ts
 try {
-  // typescript-api is TypeScript 6 under an alias: dev/ type-checks with TypeScript 7, which has no JS compiler API.
-  ts = createRequire(resolve(here, 'dev/package.json'))('typescript-api')
-  clean = await import(pathToFileURL(resolve(here, 'scripts/lib/cleanCode.mjs')).href)
+  // typescript-api is TypeScript 6 under an alias: the kit type-checks with TypeScript 7, which has no JS compiler API.
+  ts = createRequire(resolve(here, 'package.json'))('typescript-api')
+  clean = await import(pathToFileURL(resolve(here, '.claude/hooks/lib/cleanCode.mjs')).href)
 } catch (error) {
   // Without the compiler or the shared module there is no measurement, and a
   // guess about function extents is exactly what this guard refuses to make.
-  giveUp(`typescript-api (from dev/) or scripts/lib/cleanCode.mjs did not load from ${here}: ${error.message}`)
+  giveUp(`typescript-api (from the kit root) or .claude/hooks/lib/cleanCode.mjs did not load from ${here}: ${error.message}`)
 }
 
 // The same predicate the baseline uses. When the two disagreed, this measured

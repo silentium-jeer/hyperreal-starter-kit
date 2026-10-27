@@ -16,7 +16,7 @@ asset is procedural, its placement in a scene never is.
 **What the Unreal equivalent would cover:** the same plan-first discipline for
 architecture that reaches the game as content: modelled in Blender (or generated
 by a Blender script) from the plan, exported beside the feature that owns it
-(`dev/src/features/<slice>/assets/`) and imported by its code, imported with
+(`src/features/<slice>/assets/`) and imported by its code, imported with
 Nanite by the content pipeline, and placed by hand in a scene.
 
 **Until it is ported:** AGENTS.md rule 3, the Geometry Invariant in

@@ -2,7 +2,7 @@
 name: world-debug-seam
 description: >-
   Verify a game mechanic by driving it through the DEV debug seam
-  (node tools/game.mjs -> dev/src/app/debug-seam.ts), never by playing the world
+  (node vge/tools/game.mjs -> src/app/debug-seam.ts), never by playing the world
   by hand. MANDATORY before checking any mechanic that lives somewhere in a
   world — loot that spawns at a site, a pickup, an interaction, damage, death,
   an escalation stage, a weather or time-of-day state, an objective that ticks.
@@ -40,7 +40,7 @@ scripting and write a tool instead:
 - hostiles/hazards/timers kill the run before the thing under test happens;
 - the check waits for a state the world produces rarely, or on its own schedule;
 - the run must be repeated because the game reloaded, the frame rate changed, or
-  a colleague's edit landed mid-run (every save under `dev/src` hot-reloads the
+  a colleague's edit landed mid-run (every save under `src` hot-reloads the
   running game);
 - you are reading the same failure ("never got there") more than twice.
 
@@ -50,15 +50,15 @@ route — and nobody is reviewing the route.
 ## The seam this kit has
 
 ```
-node tools/game.mjs "<expression>" [timeoutMs]      (run from dev/)
-  -> POST http://127.0.0.1:5173/__vge/eval          (dev/server.mjs, evalPlugin)
+node vge/tools/game.mjs "<expression>" [timeoutMs]      (run from the kit root)
+  -> POST http://127.0.0.1:5173/__vge/eval          (vge/server.mjs, evalPlugin)
   -> every connected game process                      (Vite hot channel, event vge:eval)
-  -> dev/src/app/debug-seam.ts evaluates it with UE, puerts, world, gameInstance in scope
+  -> src/app/debug-seam.ts evaluates it with UE, puerts, world, gameInstance in scope
   -> one JSON result per process: #0, #1, ...
 ```
 
 ```bash
-node tools/game.mjs "UE.GameplayStatics.GetPlayerPawn(world, 0).K2_GetActorLocation()"
+node vge/tools/game.mjs "UE.GameplayStatics.GetPlayerPawn(world, 0).K2_GetActorLocation()"
 ```
 
 - The expression may be async. Engine objects come back described
@@ -68,7 +68,7 @@ node tools/game.mjs "UE.GameplayStatics.GetPlayerPawn(world, 0).K2_GetActorLocat
   attached to the same dev server both answer; know which `#n` is which before
   reading a number (`VGE_PORT` selects another server).
 - It listens on `import.meta.hot`, so it is live only while the game is connected
-  to the dev server, and it is mounted once per program start by `dev/src/main.ts`.
+  to the dev server, and it is mounted once per program start by `src/main.ts`.
 
 That gives the **snapshot** half of a seam for free: any engine value, read as a
 number, without guessing it from a frame (AGENTS.md rule 2b).
@@ -89,7 +89,7 @@ type WorldDebugApi = {
 ```
 
 **This kit has no named verbs yet.** When a mechanic needs one, add it once,
-by name, to the seam's scope in `dev/src/app/debug-seam.ts` — not as a long
+by name, to the seam's scope in `src/app/debug-seam.ts` — not as a long
 expression pasted into every check, which is a scripted walk written in a
 different place.
 
@@ -111,7 +111,7 @@ Three properties make a verb trustworthy, and all three are non-negotiable:
 The second half of the seam is a set of DEV switches that REMOVE what stands
 between you and the mechanic. Each one drops a layer and is named for what it
 turns off. In the web kit they were query flags; here a switch is a game
-command-line option, read the way `-Scene=` is read in `dev/src/app/scenes.ts`
+command-line option, read the way `-Scene=` is read in `src/app/scenes.ts`
 (`KismetSystemLibrary.ParseParamValue`), or a seam verb:
 
 - hostiles/pressure off — so loot, routes and interactions can be inspected
@@ -119,7 +119,7 @@ command-line option, read the way `-Scene=` is read in `dev/src/app/scenes.ts`
 - hazards/weather/time forced to a chosen state;
 - ground/terrain flattened, fog or post disabled — when they hide the thing;
 - an inspection camera free of the gameplay rig, so a site can be orbited
-  (`viewFrom(camera)` in `dev/src/shared/engine/world.ts` makes any camera actor
+  (`viewFrom(camera)` in `src/shared/engine/world.ts` makes any camera actor
   the view).
 
 If a check keeps dying, drowning, or timing out on its way to the subject, the
@@ -135,7 +135,7 @@ missing piece is a switch, not more patience.
 3. **Check the seam covers them.** Missing verb or switch → write it FIRST. This
    is part of the task, not a detour.
 4. **Drive the world into each state** through the seam.
-5. **Read the state as numbers** with `node tools/game.mjs` in each state.
+5. **Read the state as numbers** with `node vge/tools/game.mjs` in each state.
 6. **Capture and LOOK at a frame in each state** from a rendered window
    (`npm run play`, AGENTS.md rule 1). The claim is about what the world shows;
    the seam only gets you there. A `-nullrhi` process answers step 5, never
@@ -177,7 +177,7 @@ the angle the author happened to pick.
 - [ ] Every state it needs is reachable through a seam verb or switch.
 - [ ] The verbs only feed the runtime's own tick, and are DEV-only.
 - [ ] Layers that block the subject can be switched off.
-- [ ] The state was read as numbers with `node tools/game.mjs` in each state,
+- [ ] The state was read as numbers with `node vge/tools/game.mjs` in each state,
       from the right process.
 - [ ] A frame from a rendered window was captured AND looked at in each state,
       from more than one side.

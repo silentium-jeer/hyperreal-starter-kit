@@ -45,7 +45,7 @@ The brief is cheap. Rewriting work built on a misread request is not.
   copy proves nothing about comprehension.
 - Read enough of the existing code to make the brief true. A brief written from
   assumptions about what exists is a guess with formatting. In this kit start at
-  `README.md`, then the files under `dev/` the task touches.
+  `README.md`, then the files under `src/` and `vge/` the task touches.
 - Choose skills by matching the task against the full available skill catalog
   (`agents/skills/`, indexed in `agents/skills/README.md`), deliberately, before
   writing anything — not mid-task, not after a review complains.

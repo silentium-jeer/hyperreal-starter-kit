@@ -18,7 +18,7 @@ cases — a mesh drawn with a material that lacks the usage it needs, which the
 engine replaces rather than failing (the reason this kit makes project copies of
 Interchange's glTF masters with skeletal and Nanite usage, README "Engine
 notes"), shaders missing from a cooked shader library, and how to read those from
-the game log and from the objects themselves through `node tools/game.mjs`
+the game log and from the objects themselves through `node vge/tools/game.mjs`
 instead of from a frame.
 
 **Until it is ported:** AGENTS.md rule 2b (read the code and the numbers first),

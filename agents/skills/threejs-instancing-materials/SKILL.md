@@ -17,7 +17,7 @@ the measured cost of getting either wrong.
 **What the Unreal equivalent would cover:** instanced and hierarchical instanced
 static mesh components for repeated objects, Nanite's handling of repeated
 meshes, sharing material instances instead of creating one per actor (in this
-kit `colored()` in `dev/src/shared/engine/world.ts` creates a new dynamic material
+kit `colored()` in `src/shared/engine/world.ts` creates a new dynamic material
 instance on every call — the place such a rule would first apply), and how to
 measure the difference in a rendered process.
 

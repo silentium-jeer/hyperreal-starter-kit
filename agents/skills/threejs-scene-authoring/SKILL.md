@@ -16,7 +16,7 @@ every position, rotation and scale chosen for the composition and the reference,
 and a headed screenshot after each step.
 
 **What the Unreal equivalent would cover:** authoring a scene in
-`dev/src/scenes/<scene>/` as explicit `spawn(...)` / `meshActor(...)` calls with
+`src/scenes/<scene>/` as explicit `spawn(...)` / `meshActor(...)` calls with
 authored coordinates (centimetres, Z up), composed with the lab-stage camera
 before the player is mounted, each placement step hot-reloaded into the running
 game and checked in a capture of the rendered window; prefabs as local-coordinate

@@ -23,8 +23,8 @@ in the game).
 
 **What changes against the web kit:**
 - The output goes beside the feature that owns it,
-  `dev/src/features/<slice>/assets/<name>.glb` (`.gltf` and `.fbx` are also
-  accepted, `dev/vite/contentAssetsPlugin.mjs`). It reaches the game only when
+  `src/features/<slice>/assets/<name>.glb` (`.gltf` and `.fbx` are also
+  accepted, `vge/vite/contentAssetsPlugin.mjs`). It reaches the game only when
   code imports it (`import myModel from '../assets/my-model.glb'`); the import's
   default export is the handle the game addresses it by. Nothing is picked up
   from a folder, and the release build (`npm run build`) contains only imported
@@ -39,7 +39,7 @@ in the game).
   yet. Do not decimate a static mesh to meet a web number: it is imported with
   Nanite on.
 - Lights and cameras are not exported: scenes and labs create them in TypeScript
-  (`dev/src/scenes/lab-stage`).
+  (`src/scenes/lab-stage`).
 
 ## Core Concepts
 
@@ -74,15 +74,15 @@ bpy.ops.export_scene.gltf(
 
 - **Several mesh nodes on one armature import as several skeletal meshes on one
   skeleton**, and the runtime assembles them with `SetLeaderPoseComponent`
-  (README; `dev/src/features/character/entities/modularCharacter.ts`). Keep body
+  (README; `src/features/character/entities/modularCharacter.ts`). Keep body
   parts as separate mesh objects under one armature when they should be
   swappable.
 - Imported glTF characters face local +Y with the pivot at the feet
-  (`dev/src/features/character/entities/Player.tsx` rotates the mesh −90 yaw and
+  (`src/features/character/entities/Player.tsx` rotates the mesh −90 yaw and
   lowers it by the capsule half-height). Keep the origin at the feet; do not bake an offset to compensate
   in Blender.
 - Animations arrive as `AnimSequence` objects, listed per asset in the manifest
-  (`ContentAsset.animations`, `dev/src/shared/engine/content.ts`).
+  (`ContentAsset.animations`, `src/shared/engine/content.ts`).
 
 ## Common Patterns
 
@@ -180,7 +180,7 @@ onAsset(myModel, (asset) => {
 ```
 
 In a React scene, `useContentMesh(myModel)` / `useContentAsset(myModel)`
-(`dev/src/shared/react/content.ts`) do the same.
+(`src/shared/react/content.ts`) do the same.
 
 Show a new asset in a lab first (`dev-lab-authoring`), opened with
 `npm run play -- --lab <id>`, and look at it in the rendered window.
@@ -190,7 +190,7 @@ Show a new asset in a lab first (`dev-lab-authoring`), opened with
 ### 1. The asset does not appear in the game
 - Read the dev server console (`[content] …`) and the game log
   (`[content] build N mounted …` or `[content] <file>: <message>`); per build,
-  `Plugins/VgeLive/Saved/Pipeline/bNNNN/` holds the import, cook, pak and IoStore
+  `unreal/Plugins/VgeLive/Saved/Pipeline/bNNNN/` holds the import, cook, pak and IoStore
   logs.
 - Check the import: only a file that loaded game code imports is built
   (`[content] building <key>` in the dev server console).
@@ -203,7 +203,7 @@ Show a new asset in a lab first (`dev-lab-authoring`), opened with
 ### 3. Animations missing
 - Push actions to the timeline or NLA, export with animations on, bake complex
   rigs ("Bake Actions"). Confirm `asset.animations` is non-empty with
-  `node tools/game.mjs`.
+  `node vge/tools/game.mjs`.
 
 ### 4. Materials look different
 - Use Principled BSDF; custom shader nodes do not export. Judge the look in the

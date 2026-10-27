@@ -1,0 +1,38 @@
+.modes {
+  position: absolute;
+  top: 50%;
+  right: 128px;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: rgb(118 118 128 / 24%);
+  transform: translateY(-50%);
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+.mode {
+  height: 24px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgb(235 235 245 / 72%);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.mode:hover {
+  color: #fff;
+}
+
+.mode[aria-checked='true'] {
+  background: #636366;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 30%), inset 0 0.5px 0 rgb(255 255 255 / 18%);
+  color: #fff;
+  font-weight: 600;
+}

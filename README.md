@@ -44,23 +44,22 @@ compiles the project with (Visual Studio 2022 or the free Build Tools, no IDE ne
 23.6+ and Git. Everything else is fetched or built by `npm run setup`.
 
 ```bash
-git clone <this repository> && cd <repository>/dev
+git clone <this repository> && cd <repository>
 npm install
 npm run setup
 npm run dev
 ```
 
-```bash
-npm run shell
-```
+`npm run dev` is the whole dev session: the dev server and the shell, the app with the main scene, the labs and
+the UI kit. Closing the shell ends it; `npm run shell` opens the shell again while the server runs.
 
 ### Setting up a machine (written for an agent doing it)
 
-All commands run from `dev/`. Each prints what it did and exits non-zero on failure.
+All commands run from the kit root. Each prints what it did and exits non-zero on failure.
 
 1. `npm run doctor` - checks every requirement without changing anything and prints `ok` or `MISS` per
    item, each `MISS` with the command that fixes it (`npm run doctor -- --json` for the same as JSON).
-   Items: `node`, `engine` (looked up in `VGE_ENGINE`, `vge.config.json`, the Epic Games Launcher install
+   Items: `node`, `engine` (looked up in `VGE_ENGINE`, `vge/config.json`, the Epic Games Launcher install
    list, the registry), `msvc` (Visual Studio's own locator, vswhere), `windows-sdk` (the engine's own
    check, `RunUAT Turnkey -command=VerifySdk`), `runtime` (this kit is linked to a built shared runtime),
    `runtime-sources` (that runtime was built from these C++ sources), `links`.
@@ -75,16 +74,15 @@ All commands run from `dev/`. Each prints what it did and exits non-zero on fail
    (~370 MB, once per machine), copies the engine's template Mannequin, builds the C++ targets, generates
    the typings, makes the project copies of the engine's glTF master materials, packages the base game
    and builds the shell. `-- --rebuild` builds the runtime again.
-5. Done when `npm run doctor` shows every item `ok`. Then `npm run dev` (keep it running; the first game
-   that opens a scene importing a model builds it, the log shows
-   `[content] src/features/demo/assets/flight-case.glb -> VgeLive-bNNNN`), and `npm run shell` (the app with
-   the main scene, the labs and the UI kit) or `npm run play -- --scene labs/playground` (one game window);
-   `node tools/game.mjs "1"` answers from the running game.
+5. Done when `npm run doctor` shows every item `ok`. Then `npm run dev` (keep it running): it opens the shell
+   on the main scene, whose model imports are built on first use (the log shows
+   `[content] src/features/demo/assets/flight-case.glb -> VgeLive-bNNNN`); `npm run open -- labs/playground`
+   puts a lab in it, and `node vge/tools/game.mjs "1"` answers from its world.
 
 ## A scene
 
 ```tsx
-// a scene module, shortened from dev/src/features/character/labs/playground/index.tsx
+// a scene module, shortened from src/features/character/labs/playground/index.tsx
 import * as UE from 'ue';
 import { LabStage } from '../../../../scenes/lab-stage/LabStage';
 import { Stairs } from '../../../world';
@@ -112,7 +110,7 @@ A material is a module named `*.material.tsx`: JSX describes its graph, and each
 code imports like a model file.
 
 ```tsx
-// dev/src/features/materials/assets/lava.material.tsx, shortened
+// src/features/materials/assets/lava.material.tsx, shortened
 import { defineInstance, defineMaterial, param } from '../../../shared/material';
 
 const glowColor = param('glowColor', [1, 0.32, 0.04]);
@@ -142,7 +140,7 @@ import { instance } from '../../../../shared/material';
 
 - **Elements** are the engine's material expressions, `UMaterialExpression<Name>` as `<name>` (`<multiply>`,
   `<linearInterpolate>`, `<textureSample>`, `<custom>`, `<time>`, ...), with their properties and inputs as props,
-  generated from reflection (`Typing/ue/ue-material-jsx.d.ts`) like the scene elements. An input takes a number or a
+  generated from reflection (`unreal/Typing/ue/ue-material-jsx.d.ts`) like the scene elements. An input takes a number or a
   tuple (a constant), `param()`, or another element; `output="R"` picks an output (a Custom expression's extra outputs
   by name). The same subexpression used twice is one node; function components are expanded.
 - **`<material>`** takes the material's inputs (`baseColor`, `emissiveColor`, `normal`, `opacity`, `customData0`, ...)
@@ -165,7 +163,7 @@ the module in Node (a `materials` Vite environment), the content service builds 
 (`VgeMaterialBuilder.cpp`, the material editor's `UMaterialEditingLibrary`) under a path that carries the description's
 hash, the DLC cook compiles its shaders for `PCD3D_SM6`, and the game mounts the container and opens its shader library.
 A shader error is printed by the dev server and the game (`[content] ... error: use of undeclared identifier ...`), and
-the meshes keep the last material that compiled. `node tools/measure-material.mjs` measures the edit in the `materials`
+the meshes keep the last material that compiled. `node vge/tools/measure-material.mjs` measures the edit in the `materials`
 lab (median 3.1 s from save to the new material on both meshes, see Measured). The release build builds the material
 modules the program imports into `/Game/Vge/Imported`.
 
@@ -174,7 +172,7 @@ modules the program imports into `/Game/Vge/Imported`.
 - **Main scene** (`npm run shell` or `npm run play`): the stock Mannequin as the player (WASD, Space), a
   colonnade of packed instances, stairs to climb, a pyramid of physics boxes, turning cubes, and
   `features/demo/assets/flight-case.glb` on a turntable that changes in place when the file is saved. Its HUD
-  (`dev/ui/hud/MainSceneHud.tsx`, UI kit components) shows the game's FPS and drives the scene: a sun slider
+  (`src/ui/hud/MainSceneHud.tsx`, UI kit components) shows the game's FPS and drives the scene: a sun slider
   and a sphere-rain toggle, messages both ways through `bridge.ts` and `useHudMessages`.
 - **Labs**, each opened from the shell's lab index (`npm run shell`, Labs) or in its own game window
   (`npm run play -- --lab <id>`):
@@ -185,7 +183,7 @@ modules the program imports into `/Game/Vge/Imported`.
   name from TypeScript), `playground`, `spinning-cubes`, `flight-case` (the live asset pipeline).
 - **UI kit** - the [web-starter-kit](https://github.com/vibegameengine/web-starter-kit)'s app and UI kit,
   file for file: the shell's lab index and gallery (`/labs`, `/ui-kit`) are its screens, and a game's HUD
-  (`dev/ui/hud.html`) is built from its components.
+  (`src/ui/hud.html`) is built from its components.
 
 ## How it works
 
@@ -193,12 +191,12 @@ The game is Unreal's: a packaged Game target, cooked content, Lumen, Nanite, vir
 physics. What changes is where it gets its instructions.
 
 ```
- dev/src/*.ts ──▶ Vite (environment "unreal": transforms, module graph, HMR)
+ src/*.ts ──▶ Vite (environment "unreal": transforms, module graph, HMR)
  import x from '*.glb' ──▶ content pipeline: decode ─ import (content service) ─ DLC cook (standby cooker) ─ UnrealPak ──▶ VgeLive-bNNNN.pak/.utoc
                     │  WebSocket ws://127.0.0.1:5173/__unreal  (modules, HMR, vge:content events)
                     ▼
  VibeGameEngine.exe (Game target) ─ UVgeGameInstance: code-built world, no .umap, MountContent()
-                    └─ Puerts JsEnv ─ Content/JavaScript/vge/bootstrap.js (Vite ModuleRunner)
+                    └─ Puerts JsEnv ─ unreal/Content/JavaScript/vge/bootstrap.js (Vite ModuleRunner)
 ```
 
 ## Which layer to change
@@ -206,14 +204,14 @@ physics. What changes is where it gets its instructions.
 A game on this kit has four layers. Work in the first one that can do the job, and go down a layer only when the one
 above has been shown, from the code, unable to do it.
 
-1. **The game in TypeScript and React** (`dev/src/features/<your game>`): scenes, mechanics, UI on the HUD page,
+1. **The game in TypeScript and React** (`src/features/<your game>`): scenes, mechanics, UI on the HUD page,
    labs. Almost everything goes here. The engine is reachable from TypeScript through reflection: every class,
-   function and property in `Typing/ue/ue.d.ts`, and every component and actor class as a JSX element
-   (`Typing/ue/ue-jsx.d.ts`). The labs (`npm run shell`, "Labs") show how per-frame motion, instancing, physics,
+   function and property in `unreal/Typing/ue/ue.d.ts`, and every component and actor class as a JSX element
+   (`unreal/Typing/ue/ue-jsx.d.ts`). The labs (`npm run shell`, "Labs") show how per-frame motion, instancing, physics,
    characters, animation graphs and materials are written; start from them.
-2. **Assets and the content pipeline** (Blender or any DCC, `dev/content`): a wrong scale, skeleton, animation unit,
+2. **Assets and the content pipeline** (Blender or any DCC, `vge/content`): a wrong scale, skeleton, animation unit,
    pivot or material in an imported file is fixed in the file or in the import step, not in the engine.
-3. **The kit's shared TypeScript and tools** (`dev/src/shared`, `dev/tools`, `dev/server.mjs`): a wrapper every game
+3. **The kit's shared TypeScript and tools** (`src/shared`, `vge/tools`, `vge/server.mjs`): a wrapper every game
    would need, or a bug in a kit tool. The fix is portable and stays out of game code.
 4. **The kit's C++** (`Source/`, built into the runtime in a profile, README "Profiles"): only for what the three
    layers above cannot reach, and only after showing in the code why - which function or data is not exposed to
@@ -225,45 +223,56 @@ what the game already has (instanced meshes moved every frame, materials from TS
 
 ## Layout
 
-- `Source/VibeGameEngine` - `UVgeGameInstance` runs the gameplay half of `UEngine::LoadMap` on the world
+```
+src/        the game: features, scenes, shared (engine bindings, React renderer, materials), ui (HUD and shell pages)
+vge/        the kit's tooling: dev server, content pipeline, Vite plugins, in-engine runner, tools, the dev shell
+            (vge/shell, C++), this machine's settings (vge/config.json)
+unreal/     the Unreal project: VibeGameEngine.uproject, Source, Config, Content, Plugins, and what Unreal makes
+            (Binaries, Intermediate, Saved with the logs, Build, Typing; links to the shared runtime)
+docs/       how the kit works;   agents/  agent roles and skills
+.claude/    agent hooks (clean-code guard and its baseline)
+package.json  tsconfig.json   commands run from here
+```
+
+- `unreal/Source/VibeGameEngine` - `UVgeGameInstance` runs the gameplay half of `UEngine::LoadMap` on the world
   that `UGameInstance::InitializeStandalone` already created, then starts the script bootstrap.
   `MountContent` mounts a cooked container and opens its plugin's shader library.
   `AVgeGameMode` spawns a controller and no pawn.
-- `Source/VibeGameEngineTools` - editor module used only inside `UnrealEditor-Cmd`:
-  `VgeGenTypings` writes `Typing/ue` (TypeScript declarations of every reflected type),
+- `unreal/Source/VibeGameEngineTools` - editor module used only inside `UnrealEditor-Cmd`:
+  `VgeGenTypings` writes `unreal/Typing/ue` (TypeScript declarations of every reflected type),
   `VgeContentService` is the resident service the dev server owns (import with Nanite, import of
   animations onto an existing skeleton, materials and material instances from their description
   (`VgeMaterialBuilder`), delete; JSON lines over stdio), `VgeCook` is a stock cook that starts early and waits in standby
   (`-RunAsCookCommandlet`), `VgeImport` is the same import as a one-shot command.
-- `Plugins/Puerts` - Puerts from master (commit c5cd096, 2026-10-22). Local changes:
+- `unreal/Plugins/Puerts` - Puerts from master (commit c5cd096, 2026-10-22). Local changes:
   `JsEnv.Build.cs` selects V8 11.8.172 and enables the built-in WebSocket without TLS;
-  `Content/JavaScript/puerts/websocketpp.js` logs the reason a connection fails.
+  `unreal/Content/JavaScript/puerts/websocketpp.js` logs the reason a connection fails.
   V8 binaries are not in git: `npm run setup` downloads `v8_bin_11.8.172.tar.gz` from
   https://github.com/puerts/backend-v8/releases/tag/V8_11.8.172__251225 once per machine into
   `%USERPROFILE%\.vge\V8\v8_11.8.172`, which each runtime links as
-  `Plugins/Puerts/ThirdParty/v8_11.8.172`.
-- `Plugins/VgeLive` - content-only plugin that live content is cooked into as DLC against the base
+  `unreal/Plugins/Puerts/ThirdParty/v8_11.8.172`.
+- `unreal/Plugins/VgeLive` - content-only plugin that live content is cooked into as DLC against the base
   release (`Releases/dev`). Each build's container carries its own shader library, `VgeLive<build>`: a library is
   one component per name (`FNamedShaderLibrary::OpenShaderCode`), so a second container with a library of the same
   name would add no shaders.
-- `dev/server.mjs` - Vite dev backend; one server for any number of Unreal processes.
-- `dev/content/` - the content pipeline. `service.mjs` owns the resident content service the way Vite
+- `vge/server.mjs` - Vite dev backend; one server for any number of Unreal processes.
+- `vge/content/` - the content pipeline. `service.mjs` owns the resident content service the way Vite
   owns esbuild (started with the dev server, restarted if it dies; it exits by itself when its stdin
   closes), `cooker.mjs` keeps one warmed-up cook process in standby, `pipeline.mjs` runs a build: the
   cook and packaging are the stock DLC steps BuildCookRun runs; each build gets its own container.
   `decode.mjs` is the glTF rewrite both the pipeline and the release build use.
-- `dev/content/materials.mjs`, `dev/vite/materialAssetsPlugin.mjs`, `dev/src/shared/material` - material modules
+- `vge/content/materials.mjs`, `vge/vite/materialAssetsPlugin.mjs`, `src/shared/material` - material modules
   (`*.material.tsx`, [A material](#a-material)): evaluated in the dev server's `materials` environment, described as
-  content service requests, imported by the game as handles; `dev/src/shared/react/materials.ts` puts them into
+  content service requests, imported by the game as handles; `src/shared/react/materials.ts` puts them into
   material props.
-- `dev/vite/contentAssetsPlugin.mjs` - model files (`.glb`, `.gltf`, `.fbx`) as modules: the default export
+- `vge/vite/contentAssetsPlugin.mjs` - model files (`.glb`, `.gltf`, `.fbx`) as modules: the default export
   is the asset's handle, keyed by the file's path (`src/features/demo/assets/flight-case.glb`); a model lives beside the
   feature that owns it. The dev server builds a file
   when the game code first imports it and on every save; a file nothing imports is never built.
-- `dev/runner/` - the in-engine side: Web API polyfills, Vite `ModuleRunner` with a reconnecting
+- `vge/runner/` - the in-engine side: Web API polyfills, Vite `ModuleRunner` with a reconnecting
   WebSocket transport, and an evaluator that maps `ue` / `puerts` to Puerts' native modules.
-  `npm run bundle-runner` writes `Content/JavaScript/vge/bootstrap.js`.
-- `dev/src/` - the game code in TypeScript, laid out like the web starter kit (FSD):
+  `npm run bundle-runner` writes `unreal/Content/JavaScript/vge/bootstrap.js`.
+- `src/` - the game code in TypeScript, laid out like the web starter kit (FSD):
   - `app/program.ts` - the program: UI host, then the scene named by `-Scene=` (default `main`).
     `main.ts` is the dev entry (React Fast Refresh, debug seam, program); `release.ts` the release entry.
   - `shared/engine/world.ts` - ownership scopes: everything spawned or hooked up (`spawn`, `every`,
@@ -272,7 +281,7 @@ what the game already has (instanced meshes moved every frame, materials from TS
     `onMesh` subscribers (given an imported file's handle) with every new version.
   - `shared/react/` - the scene renderer: React elements named after engine classes in camelCase
     (`<staticMeshActor>`, `<pointLightComponent>`, `<character>`) become actors and components. Their props
-    and types are generated from reflection by `VgeGenTypings` (`Typing/ue/ue-jsx.d.ts`, `ue-jsx.json`):
+    and types are generated from reflection by `VgeGenTypings` (`unreal/Typing/ue/ue-jsx.d.ts`, `ue-jsx.json`):
     EditAnywhere / BlueprintReadWrite properties, Blueprint `Set<X>` setters without a property, events as
     `on<X>`. A prop is written through the property's `Set<Name>` function when there is one, the rule
     Sequencer uses (FTrackInstancePropertyBindings). A `staticMeshComponent` with no physics, events or ref
@@ -287,22 +296,23 @@ what the game already has (instanced meshes moved every frame, materials from TS
   - `features/demo`, `features/character` (the stock Mannequin, modular skeletal characters from content,
     a player character whose clips are chosen in TS from its movement state), `features/world` (stairs).
   - `app/ui-host.ts` - game side of the HUD page; `app/debug-seam.ts` - expression evaluation for agents.
-- `dev/ui/` - the HTML/CSS UI (React), served by the same Vite server with its normal browser HMR, as two
+- `src/ui/` - the HTML/CSS UI (React), served by the same Vite server with its normal browser HMR, as two
   pages. `index.html` is the shell's app: the web-starter-kit's router, lab index and UI kit, with
   `features/world` (a scene as a `<GameWorld>`) and `shell/` (the window's title bar) of this kit's own.
   `hud.html` is a game's HUD, shown by the engine's embedded browser (CEF) as a transparent overlay on the
   game: `bridge.ts` talks to the game (`window.ue.vge`); elements with `data-hit` take the mouse, the rest
   of the screen stays the game's.
-- `shell/src/` - the dev shell (C++, CEF from the engine): the frameless window, the page, and the worlds.
-- `dev/tools/` - agent and measurement tools (below).
+- `vge/shell/src/` - the dev shell (C++, CEF from the engine): the frameless window, the page, and the worlds.
+- `vge/tools/` - agent and measurement tools (below).
 
 ## Agent tools
 
 | Command | What it does |
 |---|---|
-| `node tools/game.mjs "<expr>"` | evaluates an expression in every connected game process (`UE`, `puerts`, `world`, `gameInstance` in scope) and prints the results: read state as numbers |
-| `node tools/ui.mjs text \| click <css> \| select <css> <v> \| eval <js> \| console` | drives the HTML UI over CDP: a game's HUD (`npm run play` opens it on 9222), or the shell's page with `VGE_CDP=http://127.0.0.1:9221` |
-| `npm run labs:previews [<id>...]` | captures each lab's preview for the shell's lab index: a rendered 1600×900 game window per lab, `HighResShot`, written as `dev/ui/app/ui/labs/previews/<id>.webp` |
+| `npm run open -- labs/<id> \| main` | puts that scene in the dev session's shell (the shell starts its world) and waits until it answers; prints how to reach its state and its HUD |
+| `node vge/tools/game.mjs [--scene <id>] "<expr>"` | evaluates an expression in the world on that scene, or in every connected game process (`UE`, `puerts`, `world`, `gameInstance` in scope), and prints the results with each one's scene and HUD DevTools port: read state as numbers |
+| `node vge/tools/ui.mjs text \| click <css> \| select <css> <v> \| eval <js> \| console` | drives the HTML UI over CDP: a world's HUD on the port `game.mjs` prints (`VGE_CDP=http://127.0.0.1:<port>`; world N of the shell gets the HUD port 9222 + N - 1), or the shell's page with `VGE_CDP=http://127.0.0.1:9221` |
+| `npm run labs:previews [<id>...]` | captures each lab's preview for the shell's lab index: a rendered 1600×900 game window per lab, `HighResShot`, written as `src/ui/app/ui/labs/previews/<id>.webp` |
 | `npm run build:cpp` | after a C++ change: builds the shared runtime for the new sources (C++ targets, typings, base game, shell) and links the kit to it |
 | `npm run profile -- create <name> \| list \| remove <name>` | a profile: a second checkout on its own branch with its own ports and runtime link, to build and test a feature beside the main kit (below) |
 | `npm run fab -- search "<words>" [--free] [--format unreal-engine\|gltf\|fbx]` | Fab's own search, run in the shell's Fab window: each listing with its link, formats and price ([Fab](#fab-assets-into-the-project)) |
@@ -314,31 +324,30 @@ what the game already has (instanced meshes moved every frame, materials from TS
 ## Run
 
 ```bash
-cd dev && npm run dev
+npm run dev
 ```
 
-```bash
-cd dev && npm run play
-```
+One command, one dev session: the dev server and the shell. The shell is where the human looks, and agents work
+in it too: `npm run open -- labs/<id>` puts their lab on its screen, `node vge/tools/game.mjs --scene labs/<id>`
+reads that world's state, so the human sees what agents do and no extra game processes pile up. Closing the shell
+ends the session; restarting the dev server keeps the shell that is open (its page reconnects). `npm run dev --
+--no-shell` is the server alone, for headless checks. `npm run play` starts a game process of its own, for what
+the shell cannot be: a headless numbers-only run or a release check.
 
-```bash
-cd dev && npm run shell
-```
-
-`npm run shell` opens the Hyperreal Starter Kit shell (`shell/src`, C++): a borderless window with CEF, the
+`npm run shell` opens the Hyperreal Starter Kit shell again after it was closed. The shell (`vge/shell/src`, C++): a borderless window with CEF, the
 engine's own build (`Engine/Source/ThirdParty/CEF3`), compiled with the machine's MSVC into the shared
 runtime's `Build/Shell/HyperrealStarterKit.exe`. It loads the kit's app from the dev server - the
-web-starter-kit's router, lab index and UI-kit gallery, file for file (`dev/ui`). A scene in that app is a
-`<GameWorld scene="...">` (`dev/ui/features/world`): the shell starts the game for it as its own process (its
+web-starter-kit's router, lab index and UI-kit gallery, file for file (`src/ui`). A scene in that app is a
+`<GameWorld scene="...">` (`src/ui/features/world`): the shell starts the game for it as its own process (its
 own world, V8 and HUD), borderless (`bUseBorderlessWindow`), and keeps that window under the element; the page
 is transparent there and draws its own UI over it. `/` is the main scene, `/labs` the lab index, `/labs/<id>` a
 lab's world, `/ui-kit` the gallery; leaving a scene's route ends its process. Over a world the shell page puts the
 scene's controls (back to the labs, the UI kit), and a backdrop while the world starts or after it has closed.
-The window has its own title bar (`dev/ui/shell`: drag, double-click to maximize, minimize / maximize / close)
+The window has its own title bar (`src/ui/shell`: drag, double-click to maximize, minimize / maximize / close)
 and resizes from its edges; the worlds follow. The release build has no shell.
 
-`npm run dev` starts the Vite server, the content service and the standby cooker. `npm run play`
-starts a game window on the main scene (`-- --scene labs/<id>` for another scene, `-- --lab <id>
+`npm run dev` starts the Vite server, the content service and the standby cooker, then the shell. `npm run play`
+starts a game window of its own on the main scene (`-- --scene labs/<id>` for another scene, `-- --lab <id>
 --headless` for an agent's isolated lab process without rendering). Game options when started by hand:
 `-Scene=<id>`, `-DevServer=ws://host:port/__unreal`, `-Entry=/src/main.ts`, `-nullrhi`,
 `-cefdebug=<port>`. The game reconnects by itself when the dev server restarts.
@@ -346,7 +355,7 @@ starts a game window on the main scene (`-- --scene labs/<id>` for another scene
 The dev server is the web-starter-kit's lean variant, always: no sourcemaps and compressed responses, with
 per-module HMR unchanged. The game's modules come without the inline sourcemap Vite would add
 (`remoteRunner.inlineSourceMap: false` on the `unreal` environment), the pages' modules through the web kit's
-`dev/vite/devLeanTransportPlugin.ts` (sourcemaps stripped, brotli/gzip). Measured cold, with the measuring
+`vge/vite/devLeanTransportPlugin.ts` (sourcemaps stripped, brotli/gzip). Measured cold, with the measuring
 scripts of both kits: the game's entry graph 5.1 MB → 1.63 MB (55 modules, 3.46 MB of it sourcemaps), the shell
 page 5.38 MB → 0.32 MB on the wire (69 requests). Stack traces point into the transformed modules, not the
 sources.
@@ -354,7 +363,7 @@ sources.
 Typings and type checking:
 
 ```bash
-cd dev && npm run typings && npm run typecheck
+npm run typings && npm run typecheck
 ```
 
 ### Fab: assets into the project
@@ -362,8 +371,8 @@ cd dev && npm run typings && npm run typecheck
 The shell has a Fab window: the Fab website the way the engine's Fab plugin shows it inside the editor
 (`https://www.fab.com/plugins/ue5`, `Engine/Plugins/Fab`), in a native window beside the shell, with the
 plugin's JavaScript API (`window.ue.fab`, `UFabBrowserApi`) given to the page by the shell
-(`shell/src/FabWindow.cpp`, `FabBridge.h`). So its listings show the plugin's buttons, Add to Project and Install
-Plugin, and pressing one does here what the plugin does in the editor (`dev/content/fab.mjs`):
+(`vge/shell/src/FabWindow.cpp`, `FabBridge.h`). So its listings show the plugin's buttons, Add to Project and Install
+Plugin, and pressing one does here what the plugin does in the editor (`vge/content/fab.mjs`):
 
 - Sign-in: the content service signs in with the plugin's EOS product (`VgeFab.cpp`, as `FabAuthentication.cpp`):
   from the persistent sign-in EOS keeps when there is one, otherwise the user signs in once through the Epic
@@ -372,17 +381,17 @@ Plugin, and pressing one does here what the plugin does in the editor (`dev/cont
   `BuildPatchInstallerLib`) lands in the project's `Content/<Pack>` (as `PackImportWorkflow`), then the content
   pipeline cooks it as DLC into a container of its own (`pipeline.mjs` `buildPack`), which every running game mounts
   (`MountContent`); the game code loads it by path, `/Game/<Pack>/...` (`onPack` in `shared/engine/content.ts`).
-- A glTF, GLB or FBX download (Quixel included): unpacked into `dev/src/shared/assets/fab/<Name>` and built like any
+- A glTF, GLB or FBX download (Quixel included): unpacked into `src/shared/assets/fab/<Name>` and built like any
   model file; the game code imports it by its path.
-- A plugin (Install Plugin): its build lands in `Plugins/Marketplace/<Name>` (as `PluginInstallWorkflow`), and the
+- A plugin (Install Plugin): its build lands in `unreal/Plugins/Marketplace/<Name>` (as `PluginInstallWorkflow`), and the
   runtime is built again for the kit's sources with it (`npm run build:cpp`, run by the dev server; restart the dev
   server afterwards): the game is monolithic, so a plugin's code is linked into it.
 - A pack or a plugin already on disk goes the same way from the step after its download: `npm run fab -- pack <Pack>
   --from <folder with Content/<Pack>>` (the launcher's VaultCache download), `npm run fab -- plugin <folder with
-  <Name>.uplugin>`; `dev/content/samples/VgeHelloPlugin` is a code plugin laid out as a Fab download, which a game on
+  <Name>.uplugin>`; `vge/content/samples/VgeHelloPlugin` is a code plugin laid out as a Fab download, which a game on
   the rebuilt runtime calls as `UE.VgeHelloPlugin.Hello('kit')`.
 
-What comes from Fab is licensed to the user, not to the repository: `Plugins/Marketplace` is ignored by git, and a
+What comes from Fab is licensed to the user, not to the repository: `unreal/Plugins/Marketplace` is ignored by git, and a
 pack's or a model's folder gets its own `.gitignore`. The Fab window shows only Fab's own pages; sign-in and payment
 pages it passes through never get `window.ue.fab`. Buying and signing in are the user's: an agent finds a listing
 with `npm run fab -- search`, shows it with `npm run fab -- open <link>`, and the user presses the button.
@@ -393,11 +402,11 @@ The compiled side - the game, the editor modules the content service and the coo
 package, the shell - is the same for every kit built from the same C++ sources: it only shows what the kit
 gives it (the TypeScript from the dev server, the content it cooks). So it is built once per machine into a
 shared runtime, `%USERPROFILE%\.vge\Runtime\<key>`, where `<key>` hashes the engine build, the
-V8 version and every file under `Source/`, `Plugins/`, `Config/`, `Content/`, `shell/src` and the
-`.uproject` (`dev/tools/runtime.mjs`). A kit compiles nothing: `npm run play`, the shell and the release
+V8 version and every file under `Source/`, `Plugins/`, `Config/`, `Content/`, `vge/shell/src` and the
+`.uproject` (`vge/tools/runtime.mjs`). A kit compiles nothing: `npm run play`, the shell and the release
 build start the runtime's executables by their path, and the engine-side folders Unreal itself looks up
-inside the project - `Binaries`, `Plugins/Puerts/Binaries`, `Releases`, `Content/Vge/Materials`,
-`Content/Characters/Mannequins` - and `Typing` are junctions into the runtime. A second kit on the machine
+inside the project - `Binaries`, `unreal/Plugins/Puerts/Binaries`, `Releases`, `unreal/Content/Vge/Materials`,
+`unreal/Content/Characters/Mannequins` - and `Typing` are junctions into the runtime. A second kit on the machine
 links to the runtime the first one built; a kit whose C++ differs gets its own.
 
 `npm run setup` builds it on first start; afterwards `npm run build:cpp` builds the runtime for changed
@@ -405,25 +414,25 @@ C++ sources and links the kit to it, and `npm run setup -- --rebuild` builds the
 runtime builds in its own folder of the store, so dev servers keep running on theirs meanwhile; only rebuilding a
 runtime that a running dev server holds is refused (its content service keeps that runtime's editor DLLs open,
 `~/.vge/in-use`), and a kit's dev server is restarted after the kit is linked to another runtime. The
-steps (`dev/tools/steps.mjs`) are the engine's own, run on a copy of the sources inside the runtime:
+steps (`vge/tools/steps.mjs`) are the engine's own, run on a copy of the sources inside the runtime:
 `Build.bat` for the `VibeGameEngineEditor` target and the `VibeGameEngine` target (Development and
 Shipping), `-run=VgeGenTypings`, `RunUAT BuildCookRun -cook -stage -pak -iostore -archive
 -createreleaseversion=dev` into `Build/Package`, and the shell. Unreal's stock Mannequin is copied from the
 engine's Third Person template resources (`Templates/TemplateResources/High/Characters/Content/Mannequins`,
-not in git, 126 MB) to `Content/Characters/Mannequins`, the path the template uses.
+not in git, 126 MB) to `unreal/Content/Characters/Mannequins`, the path the template uses.
 
 ### Profiles: building and testing a feature beside the main kit
 
 ```bash
-cd dev && npm run profile -- create anim-graph
+npm run profile -- create anim-graph
 ```
 
 A profile is a second checkout of the kit, `../hyperreal-starter-kit.<name>`, a git worktree on the branch
-`profile/<name>` made from the last commit, with its own `vge.config.json`: its own ports (the main kit's + 10 per
+`profile/<name>` made from the last commit, with its own `vge/config.json`: its own ports (the main kit's + 10 per
 profile: dev server 5183, HUD DevTools 9232, shell DevTools 9231 for the first) and its own link to the runtime for
 its sources. Its dependencies are junctions to the main checkout's `node_modules`. Everything in it is the kit's
-usual commands run from its own `dev/`: `npm run dev`, `npm run play`, `npm run build:cpp`, `node tools/game.mjs`,
-`node tools/ui.mjs`. Its games connect to its own dev server (`-DevServer=`, also for the shell's worlds), and each
+usual commands run from its own the kit root: `npm run dev`, `npm run play`, `npm run build:cpp`, `node vge/tools/game.mjs`,
+`node vge/tools/ui.mjs`. Its games connect to its own dev server (`-DevServer=`, also for the shell's worlds), and each
 kit lists the processes it started (`Saved/processes.json`), so `npm run stop` in a profile ends only that
 profile's dev server, games and shell. A profile whose C++ sources match a built runtime links to it at once; one
 with changed C++ builds its own beside the others, while the main kit and other profiles keep running.
@@ -438,12 +447,12 @@ and what runs in it.
 ### Release build
 
 ```bash
-cd dev && npm run build
+npm run build
 ```
 
 Makes the Shipping game in `Build/Release/Windows` (this kit's dev server must be stopped). What goes in is what
-the program imports: Vite bundles `src/release.ts` into `Content/JavaScript/vge/game.js` and the UI into
-`Content/UI`; every model file the bundle imports is imported into `/Game/Vge/Imported/<folder>/<Name>` and
+the program imports: Vite bundles `src/release.ts` into `unreal/Content/JavaScript/vge/game.js` and the UI into
+`unreal/Content/UI`; every model file the bundle imports is imported into `/Game/Vge/Imported/<folder>/<Name>` and
 its object paths are written into the bundle. `BuildCookRun -clientconfig=Shipping` then cooks the base
 content plus `/Game/Vge/Imported`, and the build removes those inputs from the project again. A Shipping
 game runs `game.js` instead of the dev bootstrap and opens the UI from its own files.
@@ -467,7 +476,7 @@ the base when engine-side content or code changes. JavaScript is staged as loose
 - A glTF character with several mesh nodes imports as several skeletal meshes on one skeleton; the
   runtime assembles them with `SetLeaderPoseComponent`.
 - React Fast Refresh runs in the engine's V8: @vitejs/plugin-react enables it for the browser only and
-  Vite's oxc plugin turns JSX refresh off for `server` consumers, so `dev/server.mjs` applies the same oxc
+  Vite's oxc plugin turns JSX refresh off for `server` consumers, so `vge/server.mjs` applies the same oxc
   transform and the same refresh wrapper (`vite/internal`) to the `unreal` environment; the preamble is
   `src/app/refresh.ts`, `window` is aliased in `runner/polyfills.ts`. React and the reconciler are CommonJS
   and go through the dependency optimizer with platform `neutral` (the `node` default imports `node:module`).
@@ -479,7 +488,7 @@ the base when engine-side content or code changes. JavaScript is staged as loose
 
 ## Content pipeline notes
 
-- Shaders are cooked for `PCD3D_SM6` only (`Config/DefaultEngine.ini`): the game runs D3D12 SM6, and the cooker
+- Shaders are cooked for `PCD3D_SM6` only (`unreal/Config/DefaultEngine.ini`): the game runs D3D12 SM6, and the cooker
   targets every format of every RHI list, BaseEngine.ini adding `PCD3D_SM5` to both D3D lists. With two formats a
   material's compiles run one after the other: `UMaterial::IsCachedCookedPlatformDataLoaded` returns at the first
   unfinished format, and a format's compile only starts when it is polled (`FMaterial::IsCompilationFinished` ->
@@ -504,12 +513,12 @@ the base when engine-side content or code changes. JavaScript is staged as loose
 | Game with rendering (DX12, Lumen, VSM): time to scene built | 2.3-2.5 s, 1.6 GB working set, 3.8 GB private |
 | Game `-nullrhi` | 1.1-1.2 s, 370 MB working set, 270 MB private |
 | 4 x game `-nullrhi` at once, one Vite server | 1.2-1.4 s each, 370 MB each |
-| React Fast Refresh of a lab (`node tools/measure-hmr.mjs`: file write to "hot updated" in the game log) | median 67 ms, max 70 ms over 8 runs |
+| React Fast Refresh of a lab (`node vge/tools/measure-hmr.mjs`: file write to "hot updated" in the game log) | median 67 ms, max 70 ms over 8 runs |
 | Edit of `main.ts` (full reload) | scene rebuilt, actor count unchanged (23) over 4 reloads |
 | Typings generation (`npm run typings`) | 42 s, `ue.d.ts` 14.6 MB |
 | Content build of one .glb (decode, import + Nanite, DLC cook, pak, IoStore) | 4.0-6.3 s: import 1.1-2.7 s, cook 1.8-2.9 s, pak + IoStore ~1 s |
 | Save of a .glb to the new mesh in the running game | 4.0-4.6 s (27 s with a fresh process per step) |
-| Save of a material module (a new constant in its Custom HLSL) to the new material on both meshes of the `materials` lab (`node tools/measure-material.mjs 5`, 2026-10-24) | median 2.38 s, 2.29-3.18 s: create 0.15 s, cook 1.24-2.08 s (4 shader jobs, 2 compiled), pak + IoStore 0.8 s |
+| Save of a material module (a new constant in its Custom HLSL) to the new material on both meshes of the `materials` lab (`node vge/tools/measure-material.mjs 5`, 2026-10-24) | median 2.38 s, 2.29-3.18 s: create 0.15 s, cook 1.24-2.08 s (4 shader jobs, 2 compiled), pak + IoStore 0.8 s |
 | The same before cooking one shader format and only the declared usages (PCD3D_SM5 + SM6, skeletal + morph + Nanite + instanced usage, old assets deleted before the cook) | median 7.09 s, 7.04-8.18 s: cook 4.7-4.8 s, the SM5 compile starting only after SM6's had finished |
 | Parameter of `instance(material, ...)` changed from React | 4 ms to the value in the same `UMaterialInstanceDynamic` |
 | Material builds in one game session | 9 containers mounted, each with its shader library opened (`VgeLiveb0022`...`b0030`), no missing shader or default material in the log |
@@ -557,5 +566,5 @@ Unreal® is a trademark or registered trademark of Epic Games, Inc. This project
 Epic Games. Third-party notices: [NOTICE.md](NOTICE.md).
 
 [^toolchain]: Not verified yet: `npm run setup -- --install-toolchain` has not been run on a machine
-    without the toolchain. An agent that hits a problem there: fix it in `dev/tools/prereqs.mjs` /
-    `dev/tools/setup.mjs`, confirm with `npm run doctor`, and open a pull request with the fix and what failed.
+    without the toolchain. An agent that hits a problem there: fix it in `vge/tools/prereqs.mjs` /
+    `vge/tools/setup.mjs`, confirm with `npm run doctor`, and open a pull request with the fix and what failed.
